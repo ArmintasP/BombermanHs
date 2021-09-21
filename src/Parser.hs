@@ -15,7 +15,7 @@ data Surrounding = Surrounding {
                 gates :: [[Int]],
                 ghosts :: [[Int]],
                 wall :: [[Int]]}
-                deriving (Show, Rd)
+                deriving (Show, Read)
 
 -- | TODO: find a way to change 'drop 15' to a more reliable parsing method
 getSurrounding :: String -> Surrounding
