@@ -26,6 +26,7 @@ source-repository head
 library
   exposed-modules:
       Lib1
+      Parser
   other-modules:
       Paths_bomberman_client
   hs-source-dirs:
