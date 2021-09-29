@@ -69,10 +69,9 @@ updateMap (State str iData prevMap _ db) = State str iData newMap bMans db
 --     there should be gameWidth * gameHeight number of entries.
 -- Example: generateEmptyMap (InitData 3 4)   ---> [(0, " "), (1, " "), ..., (11, " ")].
 generateEmptyMap :: InitData -> [(Int, String)]
-generateEmptyMap (InitData w h) = dummyValue1
+generateEmptyMap (InitData w h) = [(entryNumber, defaultSym) | entryNumber <- [0 .. (w * h)]]
 
 -- | Can be deleted once function is implemented.
-dummyValue1 = [(0, defaultSym), (1, defaultSym), (2, defaultSym)]
 dummyValue2 = [(0, bricksSym), (1, defaultSym), (2, gatesSym)]
 
 -- | Takes: (es) [Entry], (gMap) [Entry], where (es) is list of surrounding entries & (gMap) is map filled with values.
