@@ -12,7 +12,7 @@ data InitData = InitData
 -- | Change State the way need but please keep
 --  the name of the type, i.e. "State"
 -- | State String InitData Map BombermansEntries originalJsonString
-data State = State String InitData [Entry] [Entry] String
+data State = State String InitData [Entry] [Entry]
   deriving (Show)
 
 
@@ -26,7 +26,7 @@ init ::
   String ->
   -- | An initial state based on initial data and first message
   State
-init i j = update (State "" i (generateEmptyMap i) [] j ) j
+init i j = update (State "" i (generateEmptyMap i) [] ) j
 
 -- | Is called after every user interaction (key pressed)
 update ::
@@ -36,8 +36,8 @@ update ::
   String ->
   -- | A new state, probably based on the message arrived
   State
-update (State str i m b db) newStr | str == newStr = State str i m b newStr
-                                   | otherwise = updateMap (State newStr i m b newStr)
+update (State str i m b) newStr | str == newStr = State str i m b
+                                   | otherwise = updateMap (State newStr i m b)
 
 -- | Renders the current state
 render ::
@@ -45,15 +45,16 @@ render ::
   State ->
   -- | A string which represents the state. The String is rendered from the upper left corner of terminal.
   String
-render (State _ iData gMap bMan db) = mapToString ++ db
+render (State str iData gMap bMan) = mapToString ++ str
   where
     mapWithBMan = inserEntriesToMap bMan gMap
     w = gameWidth iData
-    mapToString = concat [str ++ p | (i, str) <- mapWithBMan, let p = if (i + 1) `mod` w == 0 then newlineSym else ""]
+    mapToString = concat [str ++ p | (i, str) <- mapWithBMan,
+                          let p = if (i + 1) `mod` w == 0 then newlineSym else ""]
 
 
 updateMap :: State -> State
-updateMap (State str iData prevMap _ db) = State str iData newMap bMans db
+updateMap (State str iData prevMap _ ) = State str iData newMap bMans 
   where
     surr = getSurrounding str
     entries = concat (getSurroundingEntries surr iData)
@@ -61,30 +62,31 @@ updateMap (State str iData prevMap _ db) = State str iData newMap bMans db
     bMans = getEntries surr iData (bombermans, bombermansSym)
 
 
--- IMPORTANT: defined a type Entry = (Int, String).
+-- | IMPORTANT: defined a type Entry = (Int, String).
 
--- Takes: InitData.
--- Returns: [Entry] (or [(Int, String)] - same thing),
---     where Int - an entry number (y + x * gameWidth), String - defaultSym symbol;
---     there should be gameWidth * gameHeight number of entries.
--- Example: generateEmptyMap (InitData 3 4)   ---> [(0, " "), (1, " "), ..., (11, " ")].
+-- | Takes: InitData.
+-- | Returns: [Entry] (or [(Int, String)] - same thing),
+-- |   where Int - an entry number (y + x * gameWidth), String - defaultSym symbol;
+-- |   there should be gameWidth * gameHeight number of entries.
+-- | Example: generateEmptyMap (InitData 3 4)   ---> [(0, " "), (1, " "), ..., (11, " ")].
 generateEmptyMap :: InitData -> [(Int, String)]
 generateEmptyMap (InitData w h) = [(entryNumber, defaultSym) | entryNumber <- [0 .. (w * h)]]
 
--- | Can be deleted once function is implemented.
-dummyValue2 = [(0, bricksSym), (1, defaultSym), (2, gatesSym)]
 
 -- | Takes: (es) [Entry], (gMap) [Entry], where (es) is list of surrounding entries & (gMap) is map filled with values.
 -- | Returns: [Entry], a new map with values inserted from es [Entry] to gMap [Entry].
 -- | Must: use addToMap (that takes 1 entry and adds it to the map). 
 inserEntriesToMap :: [Entry] -> [Entry] -> [Entry]
-inserEntriesToMap es gMap = dummyValue2
+inserEntriesToMap es gMap = foldl (flip addToMap) gMap es
+
 
 -- | Takes: (n, str) Entry, (gMap) [Entry]
 -- | Returns: [Entry], a gMap that has deleted n-th element and inserted into that place (n, str).
 -- | Must: check if str from (n, str) is same as n-th element from gMap. If yes, then don't do costly operations.
 addToMap :: (Int, String) -> [Entry] -> [Entry]
-addToMap (n, str) gMap = dummyValue2
+addToMap (n, str) gMap | snd (gMap !! n) == str = gMap
+                       | otherwise = take n gMap ++ [(n, str)] ++ drop (n + 1) gMap
+
 
 -- | Takes: Surrounding, InitData.
 -- | Returns: [[Entry]], where [Entry] is received by applying getEntries for each surrFuns element.
@@ -110,11 +112,11 @@ surrFuns = [
          (wall, wallSym)]
 
 
--- | Don't bother with colors for now.
-newlineSym = "\n"--"\ESC[0m\n"
-defaultSym = " "--"\ESC[0m "
-bombermansSym = "O" --"\ESC[30;43m" ++ "O"
-bricksSym = "B" --"\ESC[30;45m" ++ "+"
-gatesSym = "X" --"\ESC[30;46m" ++ "X"
-ghostsSym = "H" --"\ESC[30;41m" ++ "H"
-wallSym = "#" --"\ESC[30;100m" ++  "#"
+-- | Constant values for rendering.
+newlineSym = "\ESC[0m\n"
+defaultSym = "\ESC[0m "
+bombermansSym = "\ESC[30;43m" ++ "O"
+bricksSym = "\ESC[30;45m" ++ "+"
+gatesSym = "\ESC[30;46m" ++ "X"
+ghostsSym = "\ESC[30;41m" ++ "H"
+wallSym = "\ESC[30;100m" ++  "#"
