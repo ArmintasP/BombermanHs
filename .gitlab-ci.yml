@@ -1,0 +1,22 @@
+image: commercialhaskell/stack:gitlab-ci
+
+cache:
+  key: "$CI_BUILD_NAME"
+  paths:
+    - .stack-work/
+    - .stack-root/
+
+stages:
+  - build
+
+variables:
+    STACK_ROOT: "${CI_PROJECT_DIR}/.stack-root"
+
+build:
+  stage: build
+  only:
+    - master
+    - stable
+  script: &build
+    - export PATH=$HOME/.local/bin:$PATH
+    - stack test
