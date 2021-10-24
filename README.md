@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 ![Bomberman logo](logo.png)
 
 Contents
