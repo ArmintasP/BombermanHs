@@ -1,4 +1,4 @@
-module Parser3 where
+module Parser2 where
 
 import Lib2 (InitData)
 import Data.Char
@@ -31,19 +31,36 @@ parseInputString input =
   case parseJsonLike input of
     Left (ParserError errorMessage) -> Left (ParserError errorMessage)
     Right (parsed, []) -> Right parsed
-    Right (parsed, _) -> Left $ ParserError "Error: expected end of string in parseInputString"
+    Right (parsed, _) -> Left $ ParserError "Error: unexpected end of string in parseInputString"
 
 parseJsonLike :: String -> Either ParserError (JsonLike, String)
-parseJsonLike (x:xs)
-  | x == '\"' = parseJsonLikeString $ Right ([], xs)
-  | otherwise = undefined
 parseJsonLike [] = Left $ ParserError "Error: unexpected end of string in parseJsonLike"
+parseJsonLike (x:xs)
+  -- | x == '{' = parseJsonLikeObject $ Right ([], xs)
+  | x == '\"' = parseJsonLikeString $ Right ([], x:xs)
+  | otherwise = Left $ ParserError "Error: unexpected end of string in parseJsonLike"
 
+-- Argument left as Either in case we would want to chain several functions
 parseJsonLikeString :: Either ParserError (String, String) -> Either ParserError (JsonLike, String)
-parseJsonLikeString (Left (ParserError error)) = Left $ ParserError error
-parseJsonLikeString (Right (a, (x:xs)))
-  | x == '\"' = Right (JsonLikeString a, xs)
-  | otherwise = parseJsonLikeString $ Right ((a ++ [x]), xs)
+parseJsonLikeString (Right (a, ('\"':xs))) =
+    case parseString (Right (a, xs)) of
+      Left (ParserError error) -> Left (ParserError error)
+      Right (a, xs) -> Right (JsonLikeString a, xs)
+parseJsonLikeString (Right (a, (_:xs))) = Left $ ParserError "Error: string does not start with \" as expected in parseJsonLikeString"
 
--- Kaip patikrinti, ar išvis egzistuoja end of string \"? 
--- "Error: unfound expected end of string \" in parseExpectedChar"
+parseString :: Either ParserError (String, String) -> Either ParserError (String, String)
+parseString (Right (a, (x:xs)))
+  | x == '\"' = Right (a, xs) -- Returns if end of string \"
+  | otherwise = parseString $ Right ((a ++ [x]), xs) -- Proceeds to parse chars if not \"
+parseString (Right (a, [])) = Left $ ParserError "Error: unfound expected end of string \" in parseString"
+
+parseJsonLikeObject :: Either ParserError (String, String) -> Either ParserError (JsonLike, String)
+parseJsonLikeObject (Right (a, ('{':xs))) = undefined
+parseJsonLikeObject (Right (a, ('}':xs))) = undefined -- empty object
+parseJsonLikeObject (Right (a, xs)) = 
+  case parseJsonLikeObjectKey (Right (a, xs)) of
+    Left (ParserError errorMessage) -> Left (ParserError errorMessage)
+    Right (a, xs) -> Right (JsonLikeString a, xs)
+
+parseJsonLikeObjectKey :: Either ParserError (String, String) -> Either ParserError (String, String)
+parseJsonLikeObjectKey (Right (a, xs)) = parseString (Right (a, xs))
