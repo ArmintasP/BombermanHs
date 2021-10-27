@@ -48,15 +48,11 @@ parseJsonLikeString (Right (a, (x : xs)))
 -- Kaip patikrinti, ar išvis egzistuoja end of string \"?
 -- "Error: unfound expected end of string \" in parseExpectedChar"
 
-parseArrayElement :: [Char] -> Either ParserError (JsonLike, String)
-parseArrayElement e =
-  case head e of
-    '[' -> parseArray e
-    '"' -> parseJsonLike e
-    _ -> case take 4 e of
-      "null" -> Right (JsonLikeNull, drop 4 e)
-      _ -> parseInteger e
+testArrayString :: String
+testArrayString = "[\"a\",1,2,3,null,[\"string\",8,null,[5,6]],\"another-string\"]"
 
+-- Parses single integer like 123, 111, 0, 1.
+-- Throws error if number's length is more than 1 and starts with 0
 parseInteger :: String -> Either ParserError (JsonLike, String)
 parseInteger int =
   let str = takeWhile isDigit int
@@ -65,16 +61,35 @@ parseInteger int =
         then Left $ ParserError "Error: Number cannot start with 0"
         else Right (JsonLikeInteger (read str), drop strLen int)
 
+parseIntegerOrNull string =
+  case take 4 string of
+    "null" -> Right (JsonLikeNull, drop 4 string)
+    _ -> parseInteger string
+
+-- Parses any JsonLike element in array, like "1", \"string\", [...], {...}, null
+-- TODO: Add JsonLikeObject case
+parseArrayElement :: [Char] -> Either ParserError (JsonLike, String)
+parseArrayElement e =
+  case head e of
+    '[' -> parseArray e
+    '"' -> parseJsonLike e
+    _ -> parseIntegerOrNull e
+
+-- Recursively parses any JsonLike elements in array, like "1,2,null,\"string\",{...},[...]]"
+-- Throws error if any of the elements' parsing throws error
 parseArrayElements :: [Char] -> Either ParserError ([JsonLike], String)
 parseArrayElements elements =
   let e = parseArrayElement elements
    in case e of
         Left (ParserError str) -> Left $ ParserError str
         Right (element, ',' : rem) -> case parseArrayElements rem of
-          Left str -> Left str
+          Left (ParserError str) -> Left (ParserError str)
           Right (elements, rem2) -> Right (element : elements, rem2)
         Right (element, rem) -> Right ([element], rem)
 
+-- Parses any array which starts with '[', like "[1,2,null,\"string\",{...someObject..},[...]]"
+-- Throws error if array opening bracket '[' or closing bracket ']' is missing
+-- Throws error if array elements parsing throws error
 parseArray :: [Char] -> Either ParserError (JsonLike, String)
 parseArray ('[' : x) =
   let parsedElements = parseArrayElements x
