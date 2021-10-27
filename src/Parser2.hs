@@ -62,7 +62,7 @@ parseInteger int =
   let str = takeWhile isDigit int
       strLen = length str
    in if strLen > 1 && head str == '0'
-        then Left $ ParserError "Error: Illegal number"
+        then Left $ ParserError "Error: Number cannot start with 0"
         else Right (JsonLikeInteger (read str), drop strLen int)
 
 parseArrayElements :: [Char] -> Either ParserError ([JsonLike], String)
@@ -80,6 +80,6 @@ parseArray ('[' : x) =
   let parsedElements = parseArrayElements x
    in case parsedElements of
         Right (elements, ']' : rem) -> Right (JsonLikeList elements, rem)
-        Right (elements, rem) -> Left $ ParserError "Error: Missing array closing bracket"
+        Right (elements, rem) -> Left $ ParserError "Error: Missing array closing bracket ]"
         Left (ParserError str) -> Left $ ParserError str
-parseArray _ = Left $ ParserError "Error: Invalid array, it must start with ["
+parseArray _ = Left $ ParserError "Error: Missing array opening bracket ["
