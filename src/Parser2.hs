@@ -1,7 +1,7 @@
-module Parser3 where
+module Parser2 where
 
-import Lib2 (InitData)
 import Data.Char
+import Lib2 (InitData)
 
 data JsonLike
   = JsonLikeInteger Integer
@@ -11,7 +11,7 @@ data JsonLike
   | JsonLikeNull
   deriving (Show)
 
-data ParserError = ParserError String 
+data ParserError = ParserError String
   deriving (Show)
 
 -- | Change State the way need but please keep
@@ -27,23 +27,55 @@ testJsonString = "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1]
 
 parseInputString :: String -> Either ParserError JsonLike
 parseInputString [] = Left $ ParserError "Error: empty string in parseInputString"
-parseInputString input = 
+parseInputString input =
   case parseJsonLike input of
     Left (ParserError errorMessage) -> Left (ParserError errorMessage)
     Right (parsed, []) -> Right parsed
     Right (parsed, _) -> Left $ ParserError "Error: expected end of string in parseInputString"
 
 parseJsonLike :: String -> Either ParserError (JsonLike, String)
-parseJsonLike (x:xs)
+parseJsonLike (x : xs)
   | x == '\"' = parseJsonLikeString $ Right ([], xs)
   | otherwise = undefined
 parseJsonLike [] = Left $ ParserError "Error: unexpected end of string in parseJsonLike"
 
 parseJsonLikeString :: Either ParserError (String, String) -> Either ParserError (JsonLike, String)
 parseJsonLikeString (Left (ParserError error)) = Left $ ParserError error
-parseJsonLikeString (Right (a, (x:xs)))
+parseJsonLikeString (Right (a, (x : xs)))
   | x == '\"' = Right (JsonLikeString a, xs)
   | otherwise = parseJsonLikeString $ Right ((a ++ [x]), xs)
 
--- Kaip patikrinti, ar išvis egzistuoja end of string \"? 
+-- Kaip patikrinti, ar išvis egzistuoja end of string \"?
 -- "Error: unfound expected end of string \" in parseExpectedChar"
+
+parseArrayElement e =
+  case head e of
+    '[' -> parseArray e
+    '"' -> parseJsonLike e
+    _ -> parseInteger e
+
+parseInteger :: String -> Either ParserError (JsonLike, String)
+parseInteger int =
+  let str = takeWhile isDigit int
+      strLen = length str
+   in if strLen > 1 && head str == '0'
+        then Left $ ParserError "Error: Illegal number"
+        else Right (JsonLikeInteger (read str), drop strLen int)
+
+parseArrayElements :: [Char] -> Either ParserError ([JsonLike], String)
+parseArrayElements elements =
+  let e = parseArrayElement elements
+   in case e of
+        Left (ParserError str) -> Left $ ParserError str
+        Right (element, ',' : rem) -> case parseArrayElements rem of
+          Left str -> Left str
+          Right (elements, rem2) -> Right (element : elements, rem2)
+        Right (element, rem) -> Right ([element], rem)
+
+parseArray :: [Char] -> Either ParserError (JsonLike, String)
+parseArray ('[' : x) =
+  let parsedElements = parseArrayElements x
+   in case parsedElements of
+        Right (elements, ']' : rem) -> Right (JsonLikeList elements, rem)
+        Left (ParserError str) -> Left $ ParserError str
+parseArray _ = Left $ ParserError "Error: Invalid array, it must start with ["
