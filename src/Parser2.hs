@@ -48,11 +48,14 @@ parseJsonLikeString (Right (a, (x : xs)))
 -- Kaip patikrinti, ar išvis egzistuoja end of string \"?
 -- "Error: unfound expected end of string \" in parseExpectedChar"
 
+parseArrayElement :: [Char] -> Either ParserError (JsonLike, String)
 parseArrayElement e =
   case head e of
     '[' -> parseArray e
     '"' -> parseJsonLike e
-    _ -> parseInteger e
+    _ -> case take 4 e of
+      "null" -> Right (JsonLikeNull, drop 4 e)
+      _ -> parseInteger e
 
 parseInteger :: String -> Either ParserError (JsonLike, String)
 parseInteger int =
@@ -77,5 +80,6 @@ parseArray ('[' : x) =
   let parsedElements = parseArrayElements x
    in case parsedElements of
         Right (elements, ']' : rem) -> Right (JsonLikeList elements, rem)
+        Right (elements, rem) -> Left $ ParserError "Error: Missing array closing bracket"
         Left (ParserError str) -> Left $ ParserError str
 parseArray _ = Left $ ParserError "Error: Invalid array, it must start with ["
