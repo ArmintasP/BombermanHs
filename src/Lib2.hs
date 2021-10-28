@@ -6,14 +6,6 @@ data InitData = InitData
   }
   deriving (Show)
 
-data JsonLike
-  = JsonLikeInteger Integer
-  | JsonLikeString String
-  | JsonLikeObject [(String, JsonLike)]
-  | JsonLikeList [JsonLike]
-  | JsonLikeNull
-  deriving (Show)
-
 -- | Change State the way need but please keep
 --  the name of the type, i.e. "State"
 data State = State JsonLike InitData
