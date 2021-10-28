@@ -150,8 +150,10 @@ parseArray _ = Left $ ParserError "Missing array opening bracket ["
 
 -- TODO: finalfun should return: Either ParserError Structure
 --  Left ParserError should notify about any errors
---  Right Structure should look like the following: [("bomb/bricks/anythingElse", [[x, y]])]
+--    Return ParserError, if the amount of ints in array (coordinates) is not 2
 --  Right Structure should be unwrapped from JsonLike
+--    JsonLikeNull should be translated to []
+--  Right Structure should look like the following: [("bomb/bricks/anythingElse", [[x, y]])]
 -- TODO: refactor into smaller amount of functions
 -- TODO: rename functions more accurately and write comments
 
