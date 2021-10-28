@@ -40,23 +40,23 @@ testArrayString :: String
 testArrayString = "[\"a\",1,2,3,null,[\"string\",8,null,[5,6]],\"another-string\"]"
 
 -- | Returns only the parsed object JsonLike from the tuple (JsonLike, String)
-returnParsedValue :: String -> Either ParserError JsonLike
-returnParsedValue [] = Left $ ParserError "Error: empty string in returnParsedValue"
-returnParsedValue input = 
+runParser :: String -> Either ParserError JsonLike
+runParser [] = Left $ ParserError "Error: empty string in runParser"
+runParser input = 
   case parseJsonLike input of
     Left (ParserError errorMessage) -> Left (ParserError errorMessage)
     Right (parsed, []) -> Right parsed
-    Right (parsed, _) -> Left $ ParserError "Error: unexpected end of string in returnParsedValue"
+    Right (parsed, _) -> Left $ ParserError "Error: unexpected end of string in runParser"
 
 -- | Determines the value type and passes to an according parser
 parseJsonLike :: String -> Either ParserError (JsonLike, String)
 parseJsonLike [] = Left $ ParserError "Error: unexpected end of string in parseJsonLike"
 parseJsonLike (x:xs)
-  -- | isDigit x = parseJsonLikeInteger (x:xs)
   | x == '\"' = parseJsonLikeString (x:xs)
   | x == '{' = parseJsonLikeObject (x:xs)
-  -- | x == '[' = parseJsonLikeList (x:xs)
-  -- | x == 'n' = parseJsonLikeNull (x:xs)
+  | x == '[' = parseArray (x:xs)
+  | x == 'n' = parseIntegerOrNull (x:xs)
+  | isDigit x = parseIntegerOrNull (x:xs)
   | otherwise = Left $ ParserError "Error: unexpected end of string in parseJsonLike"
 
 -- | Removes the first '\"' in the beggining of the string and passes to parseString
@@ -127,20 +127,11 @@ parseIntegerOrNull string =
     "null" -> Right (JsonLikeNull, drop 4 string)
     _ -> parseInteger string
 
--- Parses any JsonLike element in array, like "1", \"string\", [...], {...}, null
--- TODO: Add JsonLikeObject case
-parseArrayElement :: [Char] -> Either ParserError (JsonLike, String)
-parseArrayElement e =
-  case head e of
-    '[' -> parseArray e
-    '"' -> parseJsonLike e
-    _ -> parseIntegerOrNull e
-
 -- Recursively parses any JsonLike elements in array, like "1,2,null,\"string\",{...},[...]]"
 -- Throws error if any of the elements' parsing throws error
 parseArrayElements :: [Char] -> Either ParserError ([JsonLike], String)
 parseArrayElements elements =
-  let e = parseArrayElement elements
+  let e = parseJsonLike elements
    in case e of
         Left (ParserError str) -> Left $ ParserError str
         Right (element, ',' : rem) -> case parseArrayElements rem of
