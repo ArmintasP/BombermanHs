@@ -37,12 +37,12 @@ testObjectNested = "{\"key1\":{\"key2\":\"value2\"}}"
 
 -- | Returns only the parsed object JsonLike from the tuple (JsonLike, String)
 returnParsedValue :: String -> Either ParserError JsonLike
-returnParsedValue [] = Left $ ParserError "Error: empty string in parseInputString"
+returnParsedValue [] = Left $ ParserError "Error: empty string in returnParsedValue"
 returnParsedValue input = 
   case parseJsonLike input of
     Left (ParserError errorMessage) -> Left (ParserError errorMessage)
     Right (parsed, []) -> Right parsed
-    Right (parsed, _) -> Left $ ParserError "Error: unexpected end of string in parseInputString"
+    Right (parsed, _) -> Left $ ParserError "Error: unexpected end of string in returnParsedValue"
 
 -- | Determines the value type and passes to an according parser
 parseJsonLike :: String -> Either ParserError (JsonLike, String)
