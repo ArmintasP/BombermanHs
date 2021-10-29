@@ -1,7 +1,6 @@
 module Parser2 where
 
 import Data.Char
-import JsonTest
 
 data JsonLike
   = JsonLikeInteger Integer
@@ -31,117 +30,120 @@ testArrayString = "[\"a\",1,2,3,null,[\"string\",8,null,[5,6]],\"another-string\
 runParser :: String -> Either String JsonLike
 runParser [] = Left "Empty string in runParser"
 runParser input = 
-  case parseJsonLike input of
+  case parseJsonLike (input, 0) of
     Left errorMessage -> Left errorMessage
-    Right (parsed, []) -> Right parsed
-    Right (parsed, _) -> Left "Unexpected end of string in runParser"
+    Right (parsed, ([], _)) -> Right parsed
+    Right (parsed, (_, index)) -> Left $ "Unexpected end of string at index: " ++ show index
 
 -- Determines the value type and passes to an according parser
-parseJsonLike :: String -> Either String (JsonLike, String)
-parseJsonLike [] = Left "Unexpected end of string in parseJsonLike"
-parseJsonLike (x:xs)
-  | x == '\"' = parseJsonLikeString (x:(stripStart xs))
-  | x == '{' = parseJsonLikeObject (x:(stripStart xs))
-  | x == '[' = parseArray (x:(stripStart xs))
-  | x == 'n' = parseIntegerOrNull (x:(stripStart xs))
-  | isDigit x = parseIntegerOrNull (x:(stripStart xs))
-  | otherwise = Left "No character could be matched in parseJsonLike"
+parseJsonLike :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseJsonLike ([], index) = Left $ "Unexpected end of string at index: " ++ show index
+parseJsonLike ((x:xs), index)
+  | x == '\"' = parseJsonLikeString (x:xs, index)
+  | x == '{' = parseJsonLikeObject (x:xs, index)
+  | x == '[' = parseArray (x:xs, index)
+  | x == 'n' = parseIntegerOrNull (x:xs, index)
+  | isDigit x = parseIntegerOrNull (x:xs, index)
+  | otherwise = Left $ "No character could be matched at index: " ++ show index
 
 -- Removes the first '\"' in the beggining of the string and passes to parseString
 -- If succeeds, returns (JsonlikeString, unparsed String)
-parseJsonLikeString :: String -> Either String (JsonLike, String)
-parseJsonLikeString ('\"':xs) = -- Removes \" from the beggining 
-  case parseString ([], xs) of
+parseJsonLikeString :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseJsonLikeString ('\"':xs, index) =
+  case parseString ([], (xs, index + 2)) of
     Left errorMessage -> Left errorMessage
-    Right (a, xs) -> Right (JsonLikeString a, xs)
-parseJsonLikeString (_:xs) = Left "String does not start with \" as expected in parseJsonLikeString"
+    Right (a, (xs, index)) -> Right (JsonLikeString a, (xs, index))
+parseJsonLikeString ((_:xs), index) = Left $ "String does not start with \" as expected at index: " ++ show index
 
 -- Universal parser for strings, can be applied both for parsing ObjectKey and for JsonLikeString
 -- However, the first '\"' in the beggining of the string has to be removed before passing to this function
 -- If succeeds, returns (String, unparsed String)
-parseString :: (String, String) -> Either String (String, String)
-parseString (a, (x:xs))
-  | x == '\"' = Right (a, xs) -- Returns if end of string is \"
-  | otherwise = parseString ((a ++ [x]), xs) -- Proceeds to parse chars if not \"
-parseString (a, []) = Left "Unfound expected end of string \" in parseString"
+parseString :: (String, (String, Integer)) -> Either String (String, (String, Integer))
+parseString (a, (x:xs, index))
+  | x == '\"' = Right (a, (xs, index + 2)) -- Returns if end of string is \"
+  | otherwise = parseString ((a ++ [x]), (xs, index + 1)) -- Proceeds to parse chars if not \"
+parseString (a, ([], index)) = Left $ "Unfound expected end of string \" at index: " ++ show index
 
 -- Removes the first '{' in the beggining of the object and passes to parseJsonLikeObjectKey with (accumulator, unparsed String)
 -- If succeeds, returns (JsonLikeObject, unparsed String)
-parseJsonLikeObject :: String -> Either String (JsonLike, String)
-parseJsonLikeObject ('{':xs) =
-  case parseJsonLikeObjectKey ([], stripStart xs) of
+parseJsonLikeObject :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseJsonLikeObject ('{':xs, index) =
+  case parseJsonLikeObjectKey ([], (stripStart (xs, index + 1))) of
     Left errorMessage -> Left errorMessage
-    Right (a, xs) -> Right (JsonLikeObject a, xs)
+    Right (a, (xs, index)) -> Right (JsonLikeObject a, (xs, index))
 
 -- Removes the first '\"' in the beggining of the string and passes to parseString
 -- If succeeds, passes to parseJsonLikeObjectValue with (accumulator, unparsed String) and key
-parseJsonLikeObjectKey :: ([(String, JsonLike)], String) -> Either String ([(String, JsonLike)], String)
-parseJsonLikeObjectKey (_, []) = Left "Unexpected end of object"
-parseJsonLikeObjectKey (a, ('\"':xs)) = 
-  case parseString ([], xs) of
+parseJsonLikeObjectKey :: ([(String, JsonLike)], (String, Integer)) -> Either String ([(String, JsonLike)], (String, Integer))
+parseJsonLikeObjectKey (_, ([], index)) = Left $ "Unexpected end of object at index: " ++ show index
+parseJsonLikeObjectKey (a, ('\"':xs, index)) = 
+  case parseString ([], (xs, index + 2)) of
     Left errorMessage -> Left errorMessage
-    Right (key, xs) -> parseJsonLikeObjectValue (a, stripStart xs) key
+    Right (key, (xs, index)) -> parseJsonLikeObjectValue (a, (stripStart (xs, index))) key
+parseJsonLikeObjectKey (_, (_, index)) = Left $ "Unexpected error at index: " ++ show index
 
 -- Removes the first ':' in the beggining of the string and passes the unparsed String to parseJsonLike
 -- If succeeds, passes to continueObjectParse with (accumulator, unparsed String)
-parseJsonLikeObjectValue :: ([(String, JsonLike)], String) -> String -> Either String ([(String, JsonLike)], String)
-parseJsonLikeObjectValue (a, (':':xs)) key =
-  case parseJsonLike (stripStart xs) of
+parseJsonLikeObjectValue :: ([(String, JsonLike)], (String, Integer)) -> String -> Either String ([(String, JsonLike)], (String, Integer))
+parseJsonLikeObjectValue (a, (':':xs, index)) key =
+  case parseJsonLike (stripStart (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
-    Right (parsed, xs) -> continueObjectParse ((a ++ [(key, parsed)]), stripStart xs)
-parseJsonLikeObjectValue (a, (_:xs)) key = Left "Unexpected symbol in parseJsonLikeObjectValue"
+    Right (parsed, (xs, index)) -> continueObjectParse ((a ++ [(key, parsed)]), stripStart (xs, index))
+parseJsonLikeObjectValue (a, ((_:xs), index)) key = Left $ "Unexpected symbol at index: " ++ show index
 
 -- Determines whether the Object contains more Key:Value pairs (',') or if it has ended ('}')
 -- If more, passes to parseJsonLikeObjectKey with (accumulator, unparsed String)
 -- If ended, returns (accumulator, unparsed String)
-continueObjectParse :: ([(String, JsonLike)], String) -> Either String ([(String, JsonLike)], String)
-continueObjectParse (a, []) = Left "Unexpected end of object in continueParseObject"
-continueObjectParse (a, ('}':xs)) = Right (a, xs)
-continueObjectParse (a, (',':xs)) = parseJsonLikeObjectKey (a, stripStart xs)
-continueObjectParse (a, (_:xs)) = Left "Unexpected symbol in continueParseObject"
+continueObjectParse :: ([(String, JsonLike)], (String, Integer)) -> Either String ([(String, JsonLike)], (String, Integer))
+continueObjectParse (a, ([], index)) = Left $ "Unexpected end of object at index: " ++ show index
+continueObjectParse (a, ('}':xs, index)) = Right (a, (xs, index + 1))
+continueObjectParse (a, (',':xs, index)) = parseJsonLikeObjectKey (a, stripStart (xs, index + 1))
+continueObjectParse (a, (_:xs, index)) = Left $ "Unexpected symbol at index: " ++ show index
 
 -- Parses single integer like 123, 111, 0, 1.
 -- Throws error if number's length is more than 1 and starts with 0
-parseInteger :: String -> Either String (JsonLike, String)
-parseInteger int =
-  let str = takeWhile isDigit int
+parseInteger :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseInteger (input, index) =
+  let str = takeWhile isDigit input
       strLen = length str
    in if strLen > 1 && head str == '0'
-        then Left "Number cannot start with 0"
-        else Right (JsonLikeInteger (read str), drop strLen int)
+        then Left $ "Number cannot start with 0 at index: " ++ show index
+        else Right (JsonLikeInteger (read str), (drop strLen input, index + toInteger strLen))
 
-parseIntegerOrNull string =
-  case take 4 string of
-    "null" -> Right (JsonLikeNull, drop 4 string)
-    _ -> parseInteger string
+parseIntegerOrNull (input, index) =
+  case take 4 input of
+    "null" -> Right (JsonLikeNull, (drop 4 input, index + 4))
+    _ -> parseInteger (input, index)
 
 -- Recursively parses any JsonLike elements in array, like "1,2,null,\"string\",{...},[...]]"
 -- Throws error if any of the elements' parsing throws error
-parseArrayElements :: [Char] -> Either String ([JsonLike], String)
-parseArrayElements elements =
-  let e = parseJsonLike (stripStart elements)
+parseArrayElements :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
+parseArrayElements (input, index) =
+  let e = parseJsonLike (stripStart (input, index))
    in case e of
         Left errorMessage -> Left errorMessage
-        Right (element, ',' : rem) -> case parseArrayElements (stripStart rem) of
+        Right (element, (',' : rem, index)) -> case parseArrayElements (stripStart (rem, index + 1)) of
           Left errorMessage -> Left errorMessage
-          Right (elements, rem2) -> Right (element : elements, rem2)
-        Right (element, rem) -> Right ([element], rem)
+          Right (input, (rem2, index)) -> Right (element : input, (rem2, index))
+        Right (element, (rem, index)) -> Right ([element], (rem, index))
 
 -- Parses any array which starts with '[', like "[1,2,null,\"string\",{...someObject..},[...]]"
 -- Throws error if array opening bracket '[' or closing bracket ']' is missing
 -- Throws error if array elements parsing throws error
-parseArray :: [Char] -> Either String (JsonLike, String)
-parseArray ('[' : x) =
-  let parsedElements = parseArrayElements (stripStart x)
+parseArray :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseArray ('[' : x, index) =
+  let parsedElements = parseArrayElements (stripStart (x, index))
    in case parsedElements of
-        Right (elements, ']' : rem) -> Right (JsonLikeList elements, rem)
-        Right (elements, rem) -> Left "Missing array closing bracket ]"
+        Right (elements, (']' : rem, index)) -> Right (JsonLikeList elements, (rem, index + 1))
+        Right (elements, (rem, index)) -> Left $ "Missing array closing bracket ] at index: " ++ show index
         Left errorMessage -> Left errorMessage
-parseArray _ = Left "Missing array opening bracket ["
+parseArray (_, index) = Left $ "Missing array opening bracket [ at index: " ++ show index
 
 -- Drops the beggining of the string while it's a whitespace character
-stripStart :: String -> String
-stripStart = dropWhile isSpace
+stripStart :: (String, Integer) -> (String, Integer)
+stripStart ((x:xs), index)
+  | isSpace x = stripStart (xs, index + 1)
+  | otherwise = (x:xs, index)
 
 --------------------------------------------------------------------------
 
