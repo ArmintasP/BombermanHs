@@ -40,7 +40,7 @@ testsR = [
     aPass "-15",
     aPass "22222222222222222222",
     aPass' "123456789012345678901234567890" (JsonLikeInteger 123456789012345678901234567890),
-    aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"),
+    aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"), -- I believe this test isn't valid as at beginning \\ escapes an escape character, so next \" is valid and so JsonLikeString ends
     aPass "\"\\\"",
     aPass "\"\\u260E\"",
     aPass "\"string\"",
