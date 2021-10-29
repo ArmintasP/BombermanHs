@@ -30,8 +30,8 @@ parseJsonLike ((x:xs), index)
   | x == '\"' = parseJsonLikeString (x:xs, index)
   | x == '{' = parseJsonLikeObject (x:xs, index)
   | x == '[' = parseArray (x:xs, index)
-  | x == 'n' = parseIntegerOrNull (x:xs, index)
-  | isDigit x = parseIntegerOrNull (x:xs, index)
+  | x == 'n' = parseNull (x:xs, index)
+  | isDigit x || x == '-' = parseInteger (x:xs, index)
   | otherwise = Left $ "Error after index " ++ show index ++ ": No json value could be matched"
 
 -- Removes the first '\"' in the beggining of the string and passes to parseString
@@ -94,21 +94,26 @@ continueObjectParse (a, (_:xs, index)) = Left $ "Error after index " ++ show ind
 -- Throws error if number's length is more than 1 and starts with 0
 parseInteger :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseInteger (input, index) =
-  let str = takeWhile isDigit input
+  let str = takeWhile (\x -> isDigit x || x == '-') input
       strLen = length str
    in if strLen > 1 && head str == '0'
         then Left $ "Error after index " ++ show index ++ ": Number cannot start with 0"
         else Right (JsonLikeInteger (read str), (drop strLen input, index + toInteger strLen))
 
-parseIntegerOrNull (input, index) =
+-- Parses null value like null
+-- Throws error if 4 first symbols are not equal to null
+parseNull :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseNull (input, index) =
   case take 4 input of
     "null" -> Right (JsonLikeNull, (drop 4 input, index + 4))
-    _ -> parseInteger (input, index)
+    _ -> Left $ "Error after index " ++ show index ++ ": Invalid null value"
 
 -- Recursively parses any JsonLike elements in array, like "1,2,null,\"string\",{...},[...]]"
 -- Throws error if any of the elements' parsing throws error
 parseArrayElements :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
-parseArrayElements (input, index) =
+parseArrayElements(']' : x, index) =
+  Right ([], (']' : x, index + 1))
+parseArrayElements (input, index) =     
   let e = parseJsonLike (stripStart (input, index))
    in case e of
         Left errorMessage -> Left errorMessage
@@ -117,7 +122,7 @@ parseArrayElements (input, index) =
           Right (input, (rem2, index)) -> Right (element : input, (rem2, index))
         Right (element, (rem, index)) -> Right ([element], (rem, index))
 
--- Parses any array which starts with '[', like "[1,2,null,\"string\",{...someObject..},[...]]"
+-- Parses any array which starts with '[' and ends with ']', like "[1,2,null,\"string\",{...someObject..},[...]]"
 -- Throws error if array opening bracket '[' or closing bracket ']' is missing
 -- Throws error if array elements parsing throws error
 parseArray :: (String, Integer) -> Either String (JsonLike, (String, Integer))
@@ -174,6 +179,7 @@ f3 (_, _) = []
 
 f3' = f4 $ f2 !! 4
 
+f4 :: (String, JsonLike) -> [(String, JsonLike)]
 f4 (_ , JsonLikeObject ls) = ls
 
 f4' :: (a, b) -> a
@@ -185,3 +191,11 @@ f5 [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)] = ([jval] ++ f5 o
 f5 _ = [[JsonLikeString "buvo klaida"]]
 
 f6 (str, xs) = (str, f5 xs)
+
+--TODO: REMOVE THESE COMMENTS
+-- + Neigiamo skaičiaus neparsina
+-- + Tuščio array caseo neparsina [ ws ]
+-- + Atskirti null ir integer parserius
+-- - Padarius abu punktus pabandyti Arminto testus, ar juos praeina
+-- - Pažiūrėti, ar tavo funkcijose gerai skaičiuojamas indeksas
+-- - Pažiūrėti, ar tavo funkcijose tinkamai numetamas whitespace
