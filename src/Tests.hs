@@ -41,7 +41,7 @@ testsR = [
     aPass "22222222222222222222",
     aPass' "123456789012345678901234567890" (JsonLikeInteger 123456789012345678901234567890),
     aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"),
-    aPass "\"\\\""
+    aPass "\"\\\"",
     aPass "\"\\u260E\"",
     aPass "\"string\"",
     aPass "null",
@@ -53,8 +53,8 @@ testsR = [
     aPass "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":{\"h\":{\"i\":{\"j\":{\"k\":{\"l\":{\"m\":{\"n\":{\"o\":{\"p\":\"blah\"}}}}}}}}}}}}}}}}",
     aPass "{\"id\":1,\"pets\":[\"dog\",\"cat\",\"fish\"]}",
     aPass "{\"stuff\":[321, \"abc\"]}",
-    aPass "{\"stuff\":[{pet:\"cat\"},{car:\"Ford\"}]}",
-    aPass "{\"id\":1,\"name:\"Joe\",friends:[{id:2,name:\"Pat\",pets:[\"dog\"]},{id:3,name:\"Sue\",pets:[\"bird\",\"fish\"]}],pets:[]}",
+    aPass "{\"stuff\":[{\"pet\":\"cat\"},{\"car\":\"Ford\"}]}",
+    aPass "{\"id\":1,\"name\":\"Joe\",\"friends\":[{\"id\":2,\"name\":\"Pat\",\"pets\":[\"dog\"]},{\"id\":3,\"name\":\"Sue\",\"pets\":[\"bird\",\"fish\"]}],\"pets\":[]}",
     aPass "{\"id\":1,\"stuff\":[[1,2],[2,  3],  [ ],[3,4]]}"
     ]
 
