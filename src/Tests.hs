@@ -35,17 +35,15 @@ testsR = [
     aPass "[]",
     aPass "[{}]",
     aPass "{\"a\":[]}",
-    aPass "[1,    \"hi\", true, false, null, {}, []]",
+    aPass "[1,    \"hi\", null, {}, []]",
     aPass "0",
     aPass "-15",
     aPass "22222222222222222222",
     aPass' "123456789012345678901234567890" (JsonLikeInteger 123456789012345678901234567890),
-    aPass "\"",
     aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"),
+    aPass "\"\\\""
     aPass "\"\\u260E\"",
     aPass "\"string\"",
-    aPass "true",
-    aPass "false",
     aPass "null",
     aPass "[1, 2, 2]",
     aPass "[1, 2, 2, \"hi\", null]",
@@ -81,7 +79,8 @@ testsL = [
     aFail "-",
     aFail "\"\\a\"",
     aFail "\"\\u26\"",
-    aFail "\"\\uZ000\""
+    aFail "\"\\uZ000\"",
+    aFail "02"
     ]
 
 
