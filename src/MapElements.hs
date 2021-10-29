@@ -2,7 +2,7 @@ module MapElements where
 import Parser2
 
 data MapElements = MapElements {
-                bombs :: [[Int]],
+                bomb :: [[Int]],
                 bombermans :: [[Int]],
                 bricks :: [[Int]],
                 gates :: [[Int]],
@@ -24,10 +24,10 @@ staticMEfuns = [
 dynamicMEfuns :: [(MapElements -> [[Int]], String)]
 dynamicMEfuns = [
          (bombermans, bombermansSym),
-         (bombs, bombsSym)]
+         (bomb, bombsSym)]
 
 createMapElements :: JsonLike -> Either String MapElements
-createMapElements xs = createMapElements' (viliusFun xs) (Right emptyMapElements)
+createMapElements xs = createMapElements' (jsonToCoordinates xs) (Right emptyMapElements)
 
 
 createMapElements' ::  Either String [(String, [[Int]])] -> Either String MapElements -> Either String MapElements
@@ -35,7 +35,7 @@ createMapElements' (Left error) _ = Left error
 createMapElements' _ (Left error) = Left error
 createMapElements' (Right []) s = s
 createMapElements' (Right [(str, cords)]) (Right s)  = case str of
-  "bombs" -> Right s {bombs = cords}
+  "bomb" -> Right s {bomb = cords}
   "bombermans" -> Right s {bombermans = cords}
   "bricks" -> Right s {bricks = cords}
   "gates" -> Right s {gates = cords}
@@ -44,8 +44,6 @@ createMapElements' (Right [(str, cords)]) (Right s)  = case str of
   _ -> Left ("Error: a new map object called \"" ++ str ++ "\" was detected. Please update MapElements and programming logic related to the new map object.")
 createMapElements' (Right (x:xs)) s = createMapElements' (Right xs) (createMapElements' (Right [x]) s)
 
-viliusFun :: JsonLike -> Either String [(String, [[Int]])]
-viliusFun json = error "not implemented"
 
 -- | Constant values for rendering.
 newlineSym = "\ESC[0m\n"
