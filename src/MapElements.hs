@@ -12,19 +12,23 @@ data MapElements = MapElements {
 
 emptyMapElements = MapElements [] [] [] [] [] []
 
+getBombs = bomb
+
 -- | All record fields from "data MapElements", which should be saved in the map.
 staticMEfuns :: [(MapElements -> [[Int]], String)]
 staticMEfuns = [
-         (bricks, bricksSym),
          (gates, gatesSym),
          (ghosts, ghostsSym ),
+         (bricks, bricksSym),
          (wall, wallSym)]
 
 -- | All record fields from "data MapElements", which can dissapear or change location in the map.
+-- | Order does matter. For example, [(bombermans, bombermansSym),(bomb, bombsSym)] shows a bomb in front if the bomberman steps on it.
 dynamicMEfuns :: [(MapElements -> [[Int]], String)]
 dynamicMEfuns = [
-         (bombermans, bombermansSym),
-         (bomb, bombsSym)]
+         (bomb, bombsSym),
+         (bombermans, bombermansSym)]
+
 
 createMapElements :: JsonLike -> Either String MapElements
 createMapElements xs = createMapElements' (jsonToCoordinates xs) (Right emptyMapElements)

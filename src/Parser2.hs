@@ -168,6 +168,12 @@ jsonToCoordinates json = case xs of
 jsonExtract :: [(String, JsonLike)] -> Either String [(String, [[Int]])]
 jsonExtract [] = Right []
 jsonExtract [([], _)] = Left "Error: object key should not be an empty string."
+
+-- | IMPORTANT: This "bomb" requires a separate case since it's coordinates are given not in a linked list for some reason.
+jsonExtract [("bomb", JsonLikeList [JsonLikeInteger x, JsonLikeInteger x'])] = 
+  if signum x >= 0 && signum x' >= 0 then Right [("bomb", [[fromInteger x, fromInteger x']])]
+  else Left "h"
+
 jsonExtract [(key, JsonLikeNull)] = Right [(key, [])]
 jsonExtract [(key, JsonLikeObject xs)]
   | isLeft coordinates = Left $ head (lefts [coordinates])
@@ -181,6 +187,8 @@ jsonExtract (x:xs)
   where pair = jsonExtract [x]
         pairs = jsonExtract xs
         hasLeft = isLeft pair || isLeft pairs
+
+
 
 -- | Constructs a list of coordinates.
 constructList :: [(String, JsonLike)] -> Either String [[Int]]
