@@ -47,6 +47,7 @@ parseJsonLikeString ((_:xs), index) = Left $ "Error after index " ++ show index 
 -- However, the first '\"' in the beggining of the string has to be removed before passing to this function
 -- If succeeds, returns (String, unparsed String)
 parseString :: (String, (String, Integer)) -> Either String (String, (String, Integer))
+parseString (a, ('\\':'\"':xs, index)) = parseString ((a ++ ['"']), (xs, index + 4))
 parseString (a, (x:xs, index))
   | x == '\"' = Right (a, (xs, index + 2)) -- Returns if end of string is \"
   | otherwise = parseString ((a ++ [x]), (xs, index + 1)) -- Proceeds to parse chars if not \"
@@ -64,6 +65,7 @@ parseJsonLikeObject ('{':xs, index) =
 -- If succeeds, passes to parseJsonLikeObjectValue with (accumulator, unparsed String) and key
 parseJsonLikeObjectKey :: ([(String, JsonLike)], (String, Integer)) -> Either String ([(String, JsonLike)], (String, Integer))
 parseJsonLikeObjectKey (_, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unexpected end of object"
+parseJsonLikeObjectKey (a, ('}':xs, index)) = continueObjectParse (a, ('}':xs, index))
 parseJsonLikeObjectKey (a, ('\"':xs, index)) = 
   case parseString ([], (xs, index + 2)) of
     Left errorMessage -> Left errorMessage
@@ -84,7 +86,7 @@ parseJsonLikeObjectValue (a, ((_:xs), index)) key = Left $ "Error after index " 
 -- If ended, returns (accumulator, unparsed String)
 continueObjectParse :: ([(String, JsonLike)], (String, Integer)) -> Either String ([(String, JsonLike)], (String, Integer))
 continueObjectParse (a, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unexpected end of object"
-continueObjectParse (a, ('}':xs, index)) = Right (a, (xs, index + 1))
+continueObjectParse (a, ('}':xs, index)) = Right (a, stripStart (xs, index + 1))
 continueObjectParse (a, (',':xs, index)) = parseJsonLikeObjectKey (a, stripStart (xs, index + 1))
 continueObjectParse (a, (_:xs, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected '}' or ',' following an object value"
 
