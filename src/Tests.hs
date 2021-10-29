@@ -40,8 +40,6 @@ testsR = [
     aPass "-15",
     aPass "22222222222222222222",
     aPass' "123456789012345678901234567890" (JsonLikeInteger 123456789012345678901234567890),
-    aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"), -- I believe this test isn't valid as at beginning \\ escapes an escape character, so next \" is valid and so JsonLikeString ends
-    aPass "\"\\\"",
     aPass "\"\\u260E\"",
     aPass "\"string\"",
     aPass "null",
@@ -61,13 +59,13 @@ testsR = [
 
 -- | testsL contains strings that are not valid JSONs.
 -- | All of them should fail (aFail should return true for each).
-testsLLineNum = 68
+testsLLineNum = 79
 testsL = [
     aFail "badstring", -- change testsLLineNum to the line number of the first list element.
     aFail "\"halfstringgood",
     aFail "{",
     aFail "}",
-    aFail "{\"validstringbutnoending}\"",
+    aFail "{\"validstringbutnoending}\"", -- exception, parseJsonLikeObjectValue
     aFail "{\"validstring but no ending }\"",
     aFail "{\"key\":\"bad_value }\"",
     aFail "{badkey : 2}",
@@ -76,7 +74,7 @@ testsL = [
     aFail "[1, 2, 3",
     aFail "[1, ",
     aFail "[1, ]",
-    aFail "-",
+    aFail "-", -- exception
     aFail "\"\\a\"",
     aFail "\"\\u26\"",
     aFail "\"\\uZ000\"",

@@ -29,9 +29,9 @@ parseJsonLike ([], index) = Left $ "Error after index " ++ show index ++ ": Unex
 parseJsonLike ((x:xs), index)
   | x == '\"' = parseJsonLikeString (x:xs, index)
   | x == '{' = parseJsonLikeObject (x:xs, index)
-  | x == '[' = parseArray (x:xs, index)
-  | x == 'n' = parseNull (x:xs, index)
-  | isDigit x || x == '-' = parseInteger (x:xs, index)
+  | x == '[' = parseJsonLikeList (x:xs, index)
+  | x == 'n' = parseJsonLikeNull (x:xs, index)
+  | isDigit x || x == '-' = parseJsonLikeInteger (x:xs, index)
   | otherwise = Left $ "Error after index " ++ show index ++ ": No json value could be matched"
 
 -- Removes the first '\"' in the beggining of the string and passes to parseString
@@ -47,7 +47,6 @@ parseJsonLikeString ((_:xs), index) = Left $ "Error after index " ++ show index 
 -- However, the first '\"' in the beggining of the string has to be removed before passing to this function
 -- If succeeds, returns (String, unparsed String)
 parseString :: (String, (String, Integer)) -> Either String (String, (String, Integer))
-parseString (a, ('\\':'\"':xs, index)) = parseString ((a ++ ['"']), (xs, index + 4))
 parseString (a, (x:xs, index))
   | x == '\"' = Right (a, (xs, index + 2)) -- Returns if end of string is \"
   | otherwise = parseString ((a ++ [x]), (xs, index + 1)) -- Proceeds to parse chars if not \"
@@ -92,8 +91,8 @@ continueObjectParse (a, (_:xs, index)) = Left $ "Error after index " ++ show ind
 
 -- Parses single integer like 123, 111, 0, 1.
 -- Throws error if number's length is more than 1 and starts with 0
-parseInteger :: (String, Integer) -> Either String (JsonLike, (String, Integer))
-parseInteger (input, index) =
+parseJsonLikeInteger :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseJsonLikeInteger (input, index) =
   let str = takeWhile (\x -> isDigit x || x == '-') input
       strLen = length str
    in if strLen > 1 && head str == '0'
@@ -102,22 +101,22 @@ parseInteger (input, index) =
 
 -- Parses null value like null
 -- Throws error if 4 first symbols are not equal to null
-parseNull :: (String, Integer) -> Either String (JsonLike, (String, Integer))
-parseNull (input, index) =
+parseJsonLikeNull :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseJsonLikeNull (input, index) =
   case take 4 input of
     "null" -> Right (JsonLikeNull, (drop 4 input, index + 4))
     _ -> Left $ "Error after index " ++ show index ++ ": Invalid null value"
 
 -- Recursively parses any JsonLike elements in array, like "1,2,null,\"string\",{...},[...]]"
 -- Throws error if any of the elements' parsing throws error
-parseArrayElements :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
-parseArrayElements(']' : x, index) =
+parseJsonLikeListValues :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
+parseJsonLikeListValues(']' : x, index) =
   Right ([], (']' : x, index + 1))
-parseArrayElements (input, index) =     
+parseJsonLikeListValues (input, index) =     
   let e = parseJsonLike (stripStart (input, index))
    in case e of
         Left errorMessage -> Left errorMessage
-        Right (element, (',' : rem, index)) -> case parseArrayElements (stripStart (rem, index + 1)) of
+        Right (element, (',' : rem, index)) -> case parseJsonLikeListValues (stripStart (rem, index + 1)) of
           Left errorMessage -> Left errorMessage
           Right (input, (rem2, index)) -> Right (element : input, (rem2, index))
         Right (element, (rem, index)) -> Right ([element], (rem, index))
@@ -125,14 +124,14 @@ parseArrayElements (input, index) =
 -- Parses any array which starts with '[' and ends with ']', like "[1,2,null,\"string\",{...someObject..},[...]]"
 -- Throws error if array opening bracket '[' or closing bracket ']' is missing
 -- Throws error if array elements parsing throws error
-parseArray :: (String, Integer) -> Either String (JsonLike, (String, Integer))
-parseArray ('[' : x, index) =
-  let parsedElements = parseArrayElements (stripStart (x, index))
+parseJsonLikeList :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+parseJsonLikeList ('[' : x, index) =
+  let parsedElements = parseJsonLikeListValues (stripStart (x, index))
    in case parsedElements of
         Right (elements, (']' : rem, index)) -> Right (JsonLikeList elements, (rem, index + 1))
         Right (elements, (rem, index)) -> Left $ "Error after index " ++ show index ++ ": Missing array closing bracket ']'"
         Left errorMessage -> Left errorMessage
-parseArray (_, index) = Left $ "Error after index " ++ show index ++ ": Missing array opening bracket '['"
+parseJsonLikeList (_, index) = Left $ "Error after index " ++ show index ++ ": Missing array opening bracket '['"
 
 -- Drops the beggining of the string while it's a whitespace character
 stripStart :: (String, Integer) -> (String, Integer)
