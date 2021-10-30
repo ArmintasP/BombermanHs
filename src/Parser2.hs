@@ -95,9 +95,11 @@ parseJsonLikeInteger :: (String, Integer) -> Either String (JsonLike, (String, I
 parseJsonLikeInteger (input, index) =
   let str = takeWhile (\x -> isDigit x || x == '-') input
       strLen = length str
-   in if strLen > 1 && head str == '0'
+   in if strLen == 1 && head str == '-'
+        then Left $ "Error after index " ++ show index ++ ": Missing numeric value after -"
+      else if strLen > 1 && head str == '0'
         then Left $ "Error after index " ++ show index ++ ": Number cannot start with 0"
-        else Right (JsonLikeInteger (read str), (drop strLen input, index + toInteger strLen))
+      else Right (JsonLikeInteger (read str), (drop strLen input, index + toInteger strLen))
 
 -- Parses null value like null
 -- Throws error if 4 first symbols are not equal to null
@@ -118,6 +120,7 @@ parseJsonLikeListValues (input, index) =
         Left errorMessage -> Left errorMessage
         Right (element, (',' : rem, index)) -> case parseJsonLikeListValues (stripStart (rem, index + 1)) of
           Left errorMessage -> Left errorMessage
+          Right ([], (']' : rem, index)) -> Left $ "Error after index " ++ show (index - 1) ++ ": No value found after comma in list"
           Right (input, (rem2, index)) -> Right (element : input, (rem2, index))
         Right (element, (rem, index)) -> Right ([element], (rem, index))
 
