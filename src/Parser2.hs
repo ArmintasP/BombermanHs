@@ -90,9 +90,13 @@ continueObjectParse (a, ('}':xs, index)) = Right (a, stripStart (xs, index + 1))
 continueObjectParse (a, (',':xs, index)) = parseJsonLikeObjectKey (a, stripStart (xs, index + 1))
 continueObjectParse (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected '}' or ',' following an object value"
 
--- Parses single integer like 123, 111, 0, 1.
--- Throws error if number's length is more than 1 and starts with 0
-parseJsonLikeInteger :: (String, Integer) -> Either String (JsonLike, (String, Integer))
+-- Parses single integer like 123, 111, 0, 1, -19.
+-- Throws error if number's length is more than 1 and starts with 0 or has - with no numeric value
+-- Takes: (String, Integer), 
+--    where String - parsable input string, Integer - index of current parsing symbol in starting string
+-- Returns: Either String (JsonLike, (String, Integer))
+--    where JsonLike - any JsonLikeInteger value, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
+parseJsonLikeInteger :: ([Char], Integer) -> Either [Char] (JsonLike, ([Char], Integer))
 parseJsonLikeInteger (input, index) =
   let str = takeWhile (\x -> isDigit x || x == '-') input
       strLen = length str
@@ -102,8 +106,12 @@ parseJsonLikeInteger (input, index) =
         then Left $ "Error after index " ++ show index ++ ": Number cannot start with 0"
       else Right (JsonLikeInteger (read str), (drop strLen input, index + toInteger strLen))
 
--- Parses null value like null
+-- Parses null value like null.
 -- Throws error if 4 first symbols are not equal to null
+-- Takes: (String, Integer), 
+--    where String - parsable input string, Integer - index of current parsing symbol in starting string
+-- Returns: Either String (JsonLike, (String, Integer))
+--    where JsonLike - JsonLikeNull value, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
 parseJsonLikeNull :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseJsonLikeNull (input, index) =
   case take 4 input of
@@ -112,6 +120,11 @@ parseJsonLikeNull (input, index) =
 
 -- Recursively parses any JsonLike elements in array, like "1,2,null,\"string\",{...},[...]]"
 -- Throws error if any of the elements' parsing throws error
+-- Throws error if no JsonLike value is found after , and before [
+-- Takes: (String, Integer), 
+--    where String - parsable input string, Integer - index of current parsing symbol in starting string
+-- Returns: Either String ([JsonLike], (String, Integer))
+--    where [JsonLike] - a list of any JsonLike values, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
 parseJsonLikeListValues :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
 parseJsonLikeListValues(']' : x, index) =
   Right ([], (']' : x, index + 1))
@@ -125,9 +138,14 @@ parseJsonLikeListValues (input, index) =
           Right (input, (rem2, index)) -> Right (element : input, (rem2, index))
         Right (element, (rem, index)) -> Right ([element], (rem, index))
 
--- Parses any array which starts with '[' and ends with ']', like "[1,2,null,\"string\",{...someObject..},[...]]"
+-- Parses any array which starts with '[' and ends with ']', like "[1, 2 , null,\"string\",{...},[...]]"
 -- Throws error if array opening bracket '[' or closing bracket ']' is missing
 -- Throws error if array elements parsing throws error
+-- Throws error if jsonLikeListValues parsing throws error
+-- Takes: (String, Integer), 
+--    where String - parsable input string, Integer - index of current parsing symbol in starting string
+-- Returns: Either String (JsonLike, (String, Integer))
+--    where JsonLike - a JsonLikeList of any JsonLike values, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
 parseJsonLikeList :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseJsonLikeList ('[' : x, index) =
   let parsedElements = parseJsonLikeListValues (stripStart (x, index))
