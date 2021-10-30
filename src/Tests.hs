@@ -65,7 +65,7 @@ testsL = [
     aFail "\"halfstringgood",
     aFail "{",
     aFail "}",
-    aFail "{\"validstringbutnoending}\"", -- exception, parseJsonLikeObjectValue
+    aFail "{\"validstringbutnoending}\"",
     aFail "{\"validstring but no ending }\"",
     aFail "{\"key\":\"bad_value }\"",
     aFail "{badkey : 2}",
@@ -74,7 +74,7 @@ testsL = [
     aFail "[1, 2, 3",
     aFail "[1, ",
     aFail "[1, ]",
-    aFail "-", -- exception
+    aFail "-",
     aFail "\"\\a\"",
     aFail "\"\\u26\"",
     aFail "\"\\uZ000\"",
