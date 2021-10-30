@@ -2,7 +2,7 @@ module Tests where
 import Parser2
 import Data.Either
 import MapElements (createMapElements, MapElements (MapElements))
-import qualified Lib2
+import Lib2
 
 -- | Run both, runJsonTests and runGameTests to make sure parsing is less likely to fail.
 
