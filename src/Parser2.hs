@@ -22,7 +22,7 @@ testJsonString = "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1]
 -- HINT: type 'runParser testJsonString' to test the parser
 runParser :: String -> Either String JsonLike
 runParser [] = Left "Error: Cannot parse empty string"
-runParser input = 
+runParser input =
   case parseJsonLike (stripStart (input, 0)) of
     Left errorMessage -> Left errorMessage
     Right (parsed, ([], _)) -> Right parsed
@@ -35,7 +35,7 @@ runParser input =
 --   (String, Integer) - remainder of the unparsed string and the index of the last parsed symbol.
 parseJsonLike :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseJsonLike ([], index) = Left $ "Error after index " ++ show index ++ ": Unexpected end of string"
-parseJsonLike ((x:xs), index)
+parseJsonLike (x:xs, index)
   | x == '\"' = parseJsonLikeString (x:xs, index)
   | x == '{' = parseJsonLikeObject (x:xs, index)
   | x == '[' = parseJsonLikeList (x:xs, index)
@@ -69,8 +69,8 @@ parseString (a, (x:xs, index))
   | x == '\"' = Right (a, (xs, index + 1)) -- Returns if end of string is \"
   | x == '\\' = case parseEscape (a++[x], (xs, index + 1)) of
     Left e -> Left e
-    Right (a, (xs, index)) -> parseString (a , (xs, index))  
-  | otherwise = parseString ((a ++ [x]), (xs, index + 1)) -- Proceeds to parse chars if not \"
+    Right (a, (xs, index)) -> parseString (a , (xs, index))
+  | otherwise = parseString (a ++ [x], (xs, index + 1)) -- Proceeds to parse chars if not \"
 parseString (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected end of string '\"'"
 
 
@@ -80,14 +80,14 @@ parseEscape (a, (x:xs, index))
   | x == 'u' = case parseHex (a++[x], (xs, index + 1)) of
       Left e -> Left e
       Right s -> Right s
-  | otherwise = Left $ "Invalid escape character at index: " ++ show index
-parseEscape (a, ([], index)) = Left $ "Missing escape character at index: " ++ show index
+  | otherwise = Left $ "Error after index " ++ show index ++ ": Invalid escape character at index"
+parseEscape (a, ([], index)) = Left $ "Error after index " ++ show index ++ ": Missing escape character at index"
 
 parseHex :: (String, (String, Integer)) -> Either String (String, (String, Integer))
 parseHex (a, (c1:c2:c3:c4:xs, index))
   | all isHexDigit [c1, c2, c3, c4] = Right (a ++ [c1, c2, c3, c4], (xs, index + 4))
-  | otherwise = Left $ "Invalid hex code at index: " ++ show index
-parseHex (_, (_, index)) = Left $ "Missing hex code characters at index: " ++ show index
+  | otherwise = Left $ "Error after index " ++ show index ++ ": Invalid hex code at index"
+parseHex (_, (_, index)) = Left $ "Error after index "++ show index ++ ": Missing hex code characters at index"
 
 isEscape ch = ch `elem` ['\\', '/', 'b', 'f', 'n', 'r', 't', '\"']
 
@@ -99,7 +99,7 @@ isEscape ch = ch `elem` ['\\', '/', 'b', 'f', 'n', 'r', 't', '\"']
 --   (String, Integer) - remainder of the unparsed string and the index of the last parsed symbol.
 parseJsonLikeObject :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseJsonLikeObject ('{':xs, index) =
-  case parseJsonLikeObjectKey ([], (stripStart (xs, index + 1))) of
+  case parseJsonLikeObjectKey ([], stripStart (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
     Right (a, (xs, index)) -> Right (JsonLikeObject a, (xs, index))
 parseJsonLikeObject (_, index) = Left $ "Error after index " ++ show index ++ ": Object should start with '{'"
@@ -114,10 +114,10 @@ parseJsonLikeObject (_, index) = Left $ "Error after index " ++ show index ++ ":
 parseJsonLikeObjectKey :: ([(String, JsonLike)], (String, Integer)) -> Either String ([(String, JsonLike)], (String, Integer))
 parseJsonLikeObjectKey (_, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unexpected end of object"
 parseJsonLikeObjectKey (a, ('}':xs, index)) = continueObjectParse (a, ('}':xs, index))
-parseJsonLikeObjectKey (a, ('\"':xs, index)) = 
+parseJsonLikeObjectKey (a, ('\"':xs, index)) =
   case parseString ([], (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
-    Right (key, (xs, index)) -> parseJsonLikeObjectValue (a, (stripStart (xs, index))) key
+    Right (key, (xs, index)) -> parseJsonLikeObjectValue (a, stripStart (xs, index)) key
 parseJsonLikeObjectKey (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Key should start with '\"'"
 
 -- Removes the first ':' in the beggining of the string and passes the unparsed String to parseJsonLike
@@ -132,7 +132,7 @@ parseJsonLikeObjectValue :: ([(String, JsonLike)], (String, Integer)) -> String 
 parseJsonLikeObjectValue (a, (':':xs, index)) key =
   case parseJsonLike (stripStart (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
-    Right (parsed, (xs, index)) -> continueObjectParse ((a ++ [(key, parsed)]), stripStart (xs, index))
+    Right (parsed, (xs, index)) -> continueObjectParse (a ++ [(key, parsed)], stripStart (xs, index))
 parseJsonLikeObjectValue (_, (_, index)) key = Left $ "Error after index " ++ show index ++ ": Unfound expected ':' after key in json object"
 
 -- Determines whether the Object contains more Key:Value pairs (',') or if it has ended ('}').
@@ -186,7 +186,7 @@ parseJsonLikeNull (input, index) =
 parseJsonLikeListValues :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
 parseJsonLikeListValues(']' : x, index) =
   Right ([], (']' : x, index + 1))
-parseJsonLikeListValues (input, index) =     
+parseJsonLikeListValues (input, index) =
   let e = parseJsonLike (stripStart (input, index))
    in case e of
         Left errorMessage -> Left errorMessage
@@ -220,10 +220,10 @@ parseJsonLikeList (_, index) = Left $ "Error after index " ++ show index ++ ": M
 --   last parsed symbol.
 stripStart :: (String, Integer) -> (String, Integer)
 stripStart ([], index) = ([], index)
-stripStart ((x:[]), index)
+stripStart ([x], index)
   | isSpace x = stripStart ([], index + 1)
   | otherwise = ([x], index)
-stripStart ((x:xs), index)
+stripStart (x:xs, index)
   | isSpace x = stripStart (xs, index + 1)
   | otherwise = (x:xs, index)
 
@@ -249,7 +249,7 @@ jsonExtract [] = Right []
 jsonExtract [([], _)] = Left "Error: object key should not be an empty string."
 
 -- | IMPORTANT: This "bomb" requires a separate case since it's coordinates are given not in a linked list for some reason.
-jsonExtract [("bomb", JsonLikeList [JsonLikeInteger x, JsonLikeInteger x'])] = 
+jsonExtract [("bomb", JsonLikeList [JsonLikeInteger x, JsonLikeInteger x'])] =
   if signum x >= 0 && signum x' >= 0 then Right [("bomb", [[fromInteger x, fromInteger x']])]
   else Left "Error: bomb coordinates should be positive"
 jsonExtract [("bomb", JsonLikeList xs)] = Left "Error: bomb must have only 2 coordinates: x & y."
@@ -301,4 +301,4 @@ handleBombAndSurroundings :: (String, JsonLike) -> (String, JsonLike) -> Either 
 handleBombAndSurroundings (b, js) (s, js') = case js' of
   (JsonLikeObject js'') -> Right (("bomb", js) : js'')
   JsonLikeNull -> Right [("bomb", js)]
-  _ -> Left "Error: \"surrounding\" doesn't have correct value, it should be null or Json object."  
+  _ -> Left "Error: \"surrounding\" doesn't have correct value, it should be null or Json object."

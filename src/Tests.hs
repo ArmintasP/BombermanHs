@@ -4,42 +4,27 @@ import Data.Either
 import MapElements (createMapElements, MapElements (MapElements))
 import qualified Lib2
 
+-- | Run both, runJsonTests and runGameTests to make sure parsing is less likely to fail.
+
 runJsonTests :: IO ()
-runJsonTests = do putStr "\ESC[2J" -- Cleans terminal.
-                  putStrLn "Loading tests from testsR..."
-                  failedR <- loadTests testsR testsRLineNum
-                  putStrLn "\nLoading tests from testsL with error messages...\n"
-                  failedL <- loadTests testsL testsLLineNum
-                  putStrLn "******************************************"
-                  putStrLn ("Total number of tests failed: " ++ show (failedL + failedR) ++ ".\n")
+runJsonTests = loadTestsGeneral testsR testsRLineNum testsL testsLLineNum
 
 runGameTests :: IO ()
-runGameTests = do putStr "\ESC[2J" -- Cleans terminal.
-                  putStrLn "Loading tests from testsRGame..."
-                  failedR <- loadTests testsRGame testsRGameLineNum
-                  putStrLn "\nLoading tests from testsLGame with error messages...\n"
-                  failedL <- loadTests testsLGame testsLGameLineNum
-                  putStrLn "******************************************"
-                  putStrLn ("Total number of tests failed: " ++ show (failedL + failedR) ++ ".\n")
+runGameTests = loadTestsGeneral testsRGame testsRGameLineNum testsLGame testsLGameLineNum
 
-
-loadTests :: [IO Bool] -> Int -> IO Int
-loadTests [] n = return 0
-loadTests [x] n = do x' <- x
-                     if x' then
-                         do putStrLn ("\ESC[32;40mTest (line " ++ show n ++ ") passed.\ESC[0m")
-                            return 0
-                     else
-                         do putStrLn ("\ESC[31;40mTest (line " ++ show n ++ ") failed.\ESC[0m")
-                            return 1
-loadTests (x:xs) n = do value <- loadTests [x] n
-                        values <- loadTests xs (n + 1)
-                        return (values + value)
+loadTestsGeneral :: [IO Bool] -> Int -> [IO Bool] -> Int -> IO ()
+loadTestsGeneral t1 size1 t2 size2 = do putStr "\ESC[2J" -- Cleans terminal.
+                                        putStrLn "Loading tests from testsRGame..."
+                                        failedR <- loadTests t1 size1
+                                        putStrLn "\nLoading tests from testsLGame with error messages...\n"
+                                        failedL <- loadTests t2 size2
+                                        putStrLn "******************************************"
+                                        putStrLn ("Total number of tests failed: " ++ show (failedL + failedR) ++ ".\n")
 
 
 -- | All tests from testsR should pass as they are valid JSONs.
 
-testsRLineNum = 30
+testsRLineNum = 29 -- use `0` as a value if tests are spanning multiple lines.
 testsR = [
     aPass "{}",  -- change testsRLineNum to the line number of the first list element.
     aPass "  { \n } \t ",
@@ -75,7 +60,7 @@ testsR = [
 
 -- | testsL contains strings that are not valid JSONs.
 -- | All of them should fail (aFail should return true for each).
-testsLLineNum = 79
+testsLLineNum = 65 -- use `0` as a value if tests are spanning multiple lines.
 testsL = [
     aFail "badstring", -- change testsLLineNum to the line number of the first list element.
     aFail "\"halfstringgood",
@@ -97,8 +82,7 @@ testsL = [
     aFail "02",
     aFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}"
     ]
-testsLGameLineNum = 95
-testsRGameLineNum = 96
+testsRGameLineNum = 88
 
 testsRGame = [
     gAPass "{\"bomb\":null,\"surrounding\":null}" (MapElements [] [] [] [] [] []),
@@ -114,6 +98,7 @@ testsRGame = [
             \\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}}}, \"bomb\":[5, 5]}" (MapElements [[5,5]] [[0,4]] [[8,7], [8,3]] [] [] [])
     ]
 
+testsLGameLineNum = 103
 testsLGame = [
     gAFail "\"random\"",
     gAFail "{\"bomb\":null}",
@@ -122,13 +107,9 @@ testsLGame = [
     gAFail "{\"bomb\":[1,2,3],\"surrounding\":null}",
     gAFail "{\"bomb\":[1],\"surrounding\":null}",
     gAFail "{\"bomb\":[1,2,3],\"surrounding\":null}",
-    gAFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"BADHEADDDDDDDDD\":[0,4],\"tail\":{\"head\":null,\"tail\":null}},\
-            \\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}}}}",
-
+    gAFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"BADHEADDDDDDDDD\":[0,4],\"tail\":{\"head\":null,\"tail\":null}},\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}}}}",
     gAFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[0,4, 5],\"tail\":{\"head\":null,\"tail\":null}}}}"
-
-
-            ]
+    ]
 
 instaRender json = do putStr (Lib2.render (Lib2.init (Lib2.InitData 10 10) json))
 
@@ -166,6 +147,19 @@ aFail str = case runParser str of
                    return True
     (Right xs) -> return False
 aFail' s ex = do not <$> aPass' s ex
+
+loadTests :: [IO Bool] -> Int -> IO Int
+loadTests [] n = return 0
+loadTests [x] n = do x' <- x
+                     if x' then
+                         do putStrLn ("\ESC[32;40mTest (line " ++ show n ++ ") passed.\ESC[0m")
+                            return 0
+                     else
+                         do putStrLn ("\ESC[31;40mTest (line " ++ show n ++ ") failed.\ESC[0m")
+                            return 1
+loadTests (x:xs) n = do value <- loadTests [x] n
+                        values <- loadTests xs (n + 1)
+                        return (values + value)
 
 
 -- | Do not rely heavily on this; is for testing purposes only.
