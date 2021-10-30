@@ -161,6 +161,7 @@ stripStart ((x:xs), index)
 -- TODO: refactor into smaller amount of functions
 -- TODO: rename functions more accurately and write comments
 
+finalfun :: [(String, [[JsonLike]])]
 finalfun = map f6 pairs
   where pairs = zip (map f4' f2) (map f4 f2)
 
@@ -172,6 +173,7 @@ f1 :: Either String JsonLike -> [(String, JsonLike)]
 f1 (Right (JsonLikeObject t)) = t
 f1 _ = [("", JsonLikeNull)]
 
+f2 :: [(String, JsonLike)]
 f2 = f3 $ head (drop 1 (f1 parsedJson))
 
 f3 :: (String, JsonLike) -> [(String, JsonLike)]
@@ -191,12 +193,5 @@ f5 [("head", JsonLikeNull) , ("tail", JsonLikeNull)] = []
 f5 [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)] = ([jval] ++ f5 obj)
 f5 _ = [[JsonLikeString "buvo klaida"]]
 
+f6 :: (a, [(String, JsonLike)]) -> (a, [[JsonLike]])
 f6 (str, xs) = (str, f5 xs)
-
---TODO: REMOVE THESE COMMENTS
--- + Neigiamo skaičiaus neparsina
--- + Tuščio array caseo neparsina [ ws ]
--- + Atskirti null ir integer parserius
--- - Padarius abu punktus pabandyti Arminto testus, ar juos praeina
--- - Pažiūrėti, ar tavo funkcijose gerai skaičiuojamas indeksas
--- - Pažiūrėti, ar tavo funkcijose tinkamai numetamas whitespace
