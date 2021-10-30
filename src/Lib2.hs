@@ -7,7 +7,7 @@ import MapElements
       dynamicMEfuns,
       createMapElements,
       newlineSym,
-      defaultSym )
+      defaultSym, getBombs, bricksSym, ghostsSym )
 import Parser2 ( JsonLike(..), runParser )
 
 data InitData = InitData
@@ -17,7 +17,7 @@ data InitData = InitData
   deriving (Show)
 
 -- | State JsonLike InitData StaticMapData DymanicMapData ErrorMessage
-data State = State JsonLike InitData [Entry] [Entry] String
+data State = State JsonLike InitData [Entry] [Entry] [[Int]] String
   deriving (Show)
 
 type Entry = (Int, String)
@@ -33,7 +33,7 @@ init ::
   JsonLike ->
   -- | An initial state based on initial data and first message
   State
-init i = update (State JsonLikeNull i (generateEmptyMap i) [] "")
+init i = update (State JsonLikeNull i (generateEmptyMap i) [] [] "")
 
 -- | Is called after every user interaction (key pressed)
 update ::
@@ -43,7 +43,7 @@ update ::
   JsonLike ->
   -- | A new state, probably based on the message arrived
   State
-update (State json i m b e) newJson = updateMap (State newJson i m b e)
+update (State json i m d b e) newJson = updateMap (State newJson i m d b e)
 
 -- | Renders the current state
 render ::
@@ -51,24 +51,28 @@ render ::
   State ->
   -- | A string which represents the state. The String is rendered from the upper left corner of terminal.
   String
-render (State json iData sMap dMap "") = mapToString
+render (State json iData sMap dMap lBomb "") = mapToString
   where
     mapWithDynamicEls = addToMap dMap sMap
     w = gameWidth iData
     mapToString = concat [str ++ p | (i, str) <- mapWithDynamicEls,
                           let p = if (i + 1) `mod` w == 0 then newlineSym else ""]
-render (State _ _ _ _ errorMessage) = errorMessage
+render (State _ _ _ _ _ errorMessage) = errorMessage
 
 updateMap :: State -> State
-updateMap (State json iData prevMap _ _) =
+updateMap (State json iData prevMap _ lBomb _) =
   if isRight mapElements then
     let mapElements' = head (rights [mapElements])
         entries = concat (getStaticEntries mapElements' iData)
-        newMap = addToMap entries prevMap
         dynamicElements = concat (getDynamicEntries mapElements' iData)
-    in State json iData newMap dynamicElements ""
+        newBombs = getBombs mapElements'
+
+        mapAfterExplosion = explodeBombs prevMap iData lBomb newBombs
+
+        newMap = addToMap entries mapAfterExplosion
+    in State json iData newMap dynamicElements newBombs""
   else
-    State json iData [] [] (head (lefts [mapElements])) 
+    State json iData [] [] [] (head (lefts [mapElements])) 
   where
       mapElements = createMapElements json
 
@@ -96,8 +100,12 @@ addToMap es gMap = foldl (flip addToMap') gMap es
 -- | Must: check if str from (n, str) is same as n-th element from gMap. If yes, then don't do costly operations.
 addToMap' :: (Int, String) -> [Entry] -> [Entry]
 addToMap' (n, str) gMap | snd (gMap !! n) == str = gMap
-                       | otherwise = take n gMap ++ [(n, str)] ++ drop (n + 1) gMap
+                        | otherwise = take n gMap ++ [(n, str)] ++ drop (n + 1) gMap
 
+-- | Same as addToMap' but can be used to replace specific map elements.
+replaceInMap :: [String] -> (Int, String) -> [Entry] -> [Entry]
+replaceInMap targets (n, str) gMap | snd (gMap !! n) `elem` targets = take n gMap ++ [(n, str)] ++ drop (n + 1) gMap
+                                   | otherwise = gMap
 
 -- | Takes: MapElements, InitData.
 -- | Returns: [[Entry]], where [Entry] is received by applying getEntries' for each staticMEfuns element.
@@ -111,7 +119,29 @@ getDynamicEntries surr iData = map (getEntries' surr iData) dynamicMEfuns
 -- | Takes : (a, String), MapElements, InitData.
 -- | Returns: [(Int, String)], where String is a symbol, Int - sum of coordinates (y + x * width).
 getEntries' :: MapElements -> InitData -> (MapElements -> [[Int]], String) -> [(Int, String)]
-getEntries' surr iData (fun, sym) = [(p, sym) | [x, y] <- fun surr, let p = y + x * w]
+getEntries' surr iData (fun, sym) = getEntries'' iData (fun surr, sym)
+
+getEntries'' :: InitData -> ([[Int]], String) -> [(Int, String)]
+getEntries'' iData (entries, sym) = [(p, sym) | [x, y] <- entries, let p = y + x * w]
   where
     w = gameWidth iData
 
+-- | Takes prevMap, old bombs and new bombs. If old bombs exploded, 
+explodeBombs :: [Entry] -> InitData -> [[Int]] -> [[Int]] -> [Entry]
+explodeBombs gMap _ [] [] = gMap
+explodeBombs gMap _ [] [[x1, y1]] = gMap
+explodeBombs gMap iData [[x, y]] [] = removeExplodedBricks gMap iData x y
+explodeBombs gMap iData [[x, y]] [[x1, y1]]
+  | x1 == x1 && y == y1 = gMap
+  | otherwise = removeExplodedBricks gMap iData x y
+explodeBombs _ _ a b = error ("Application supporting multiple bombs is not implemented yet." ++ show a ++ show b)
+
+
+removeExplodedBricks :: [Entry] -> InitData -> Int -> Int -> [Entry]
+removeExplodedBricks gMap iData x y = foldl (flip (replaceInMap [bricksSym, ghostsSym])) gMap badBricks
+  where w = gameWidth iData
+        h = gameHeight iData
+        badBricks = getEntries'' iData (getExplosionPoints x y w h, defaultSym)
+
+getExplosionPoints :: Int -> Int -> Int -> Int -> [[Int]]
+getExplosionPoints x y w h = filter (\[x', y'] -> x' < h && y' < w) [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1], [x, y]]

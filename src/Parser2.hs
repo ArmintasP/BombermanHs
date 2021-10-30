@@ -1,6 +1,8 @@
 module Parser2 where
 
 import Data.Char
+import Data.Either
+import Data.List
 
 data JsonLike
   = JsonLikeInteger Integer
@@ -225,51 +227,78 @@ stripStart ((x:xs), index)
   | isSpace x = stripStart (xs, index + 1)
   | otherwise = (x:xs, index)
 
+
 --------------------------------------------------------------------------
+--  Left String should notify about any errors:
+--    if the amount of ints in array (coordinates) is not 2
+--    if there are no "bomb" or "surroundings" keys
+--    if it cointains wrong types, values, etc.
+--  Right Structure should look like the following: [("bomb/bricks/anythingElse", [[x, y]])] [(String, [[Int]])]
 
--- Armintas's flattening functions
--- Run 'finalfun' (no args) to test
 
--- TODO: finalfun should return: Either String Structure
---  Left String should notify about any errors
---    Return String, if the amount of ints in array (coordinates) is not 2
---  Right Structure should be unwrapped from JsonLike
---    JsonLikeNull should be translated to []
---  Right Structure should look like the following: [("bomb/bricks/anythingElse", [[x, y]])]
--- TODO: refactor into smaller amount of functions
--- TODO: rename functions more accurately and write comments
+-- Pass JsonLike and get a list of coordinates with keys (map element names) on success.
+jsonToCoordinates :: JsonLike -> Either String [(String, [[Int]])]
+jsonToCoordinates json = case xs of
+  Left e -> Left e
+  Right xs' -> jsonExtract xs'
+  where xs  = jsonGetMapObjects json
 
-finalfun :: [(String, [[JsonLike]])]
-finalfun = map f6 pairs
-  where pairs = zip (map f4' f2) (map f4 f2)
+-- | Extracts values from values of "bomb" and "surrounding". Parses linked list into [[Int]].
+jsonExtract :: [(String, JsonLike)] -> Either String [(String, [[Int]])]
+jsonExtract [] = Right []
+jsonExtract [([], _)] = Left "Error: object key should not be an empty string."
 
--- String that is used to test finalfun
-parsedJson :: Either String JsonLike
-parsedJson = runParser testJsonString
+-- | IMPORTANT: This "bomb" requires a separate case since it's coordinates are given not in a linked list for some reason.
+jsonExtract [("bomb", JsonLikeList [JsonLikeInteger x, JsonLikeInteger x'])] = 
+  if signum x >= 0 && signum x' >= 0 then Right [("bomb", [[fromInteger x, fromInteger x']])]
+  else Left "Error: bomb coordinates should be positive"
+jsonExtract [("bomb", JsonLikeList xs)] = Left "Error: bomb must have only 2 coordinates: x & y."
 
-f1 :: Either String JsonLike -> [(String, JsonLike)]
-f1 (Right (JsonLikeObject t)) = t
-f1 _ = [("", JsonLikeNull)]
+jsonExtract [(key, JsonLikeNull)] = Right [(key, [])]
+jsonExtract [(key, JsonLikeObject xs)]
+  | isLeft coordinates = Left $ head (lefts [coordinates])
+  | otherwise = Right [(key, concat coordinates)]
+  where coordinates = constructList xs
+--jsonExtract [(key, JsonLikeList [])] = Right [(key, [])]
+jsonExtract [(key, _)] = Left ("Error: \"" ++ key ++ "\" should have an object (a linked list) as a value, not a list, string or integer.")
+jsonExtract (x:xs)
+  | hasLeft = Left (intercalate "\n" (lefts [pair, pairs]))
+  | otherwise = Right (concat (rights [pair, pairs]))
+  where pair = jsonExtract [x]
+        pairs = jsonExtract xs
+        hasLeft = isLeft pair || isLeft pairs
 
-f2 :: [(String, JsonLike)]
-f2 = f3 $ head (drop 1 (f1 parsedJson))
 
-f3 :: (String, JsonLike) -> [(String, JsonLike)]
-f3 (_, JsonLikeObject a) = a 
-f3 (_, _) = []
 
-f3' = f4 $ f2 !! 4
+-- | Constructs a list of coordinates.
+constructList :: [(String, JsonLike)] -> Either String [[Int]]
+constructList [("head", JsonLikeNull) , ("tail", JsonLikeNull)] = Right []
+constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)]
+  | hasLeft = Left (intercalate "\n" (lefts [listH, listT]))
+  | otherwise = Right (concat (rights [listH, listT]))
+  where listH = constructListHead jval
+        listT = constructList obj
+        hasLeft = isLeft listH || isLeft listT
+constructList _  = Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object (or null) as a value."
 
-f4 :: (String, JsonLike) -> [(String, JsonLike)]
-f4 (_ , JsonLikeObject ls) = ls
+-- | Takes values from a linked list's head.
+constructListHead :: [JsonLike] -> Either String [[Int]]
+constructListHead [] = Left "Error: if \"head\" has an empty list, its value should be null. Otherwise populate it with coordinates (2 positive integers)."
+constructListHead [js, js'] = case (js, js') of
+  (JsonLikeInteger x, JsonLikeInteger x') -> if signum x >= 0 && signum x' >= 0 then Right [[fromInteger x, fromInteger x']]
+    else Left "Error: \"head\" has a list with negative integer(s)."
+  (_, _) -> Left "Error: \"head\" has a list containing other types than positive integers."
 
-f4' :: (a, b) -> a
-f4' (str, _) = str
+constructListHead js = Left "Error: \"head\" must have 2 and only 2 elements that are positive integers that represent coordinates of an object."
 
-f5 :: [(String, JsonLike)] -> [[JsonLike]]
-f5 [("head", JsonLikeNull) , ("tail", JsonLikeNull)] = []
-f5 [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)] = ([jval] ++ f5 obj)
-f5 _ = [[JsonLikeString "buvo klaida"]]
+-- | Checks if passed json has "surrounding" and "bomb" field. They are crucial for our current program.
+jsonGetMapObjects :: JsonLike -> Either String [(String, JsonLike)]
+jsonGetMapObjects (JsonLikeObject [("bomb", js), ("surrounding", js')]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
+jsonGetMapObjects (JsonLikeObject [("surrounding", js'), ("bomb", js)]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
+jsonGetMapObjects _ = Left "Error: there should be 2 objects with keys \"bomb\" and \"surrounding\"."
 
-f6 :: (a, [(String, JsonLike)]) -> (a, [[JsonLike]])
-f6 (str, xs) = (str, f5 xs)
+handleBombAndSurroundings :: (String, JsonLike) -> (String, JsonLike) -> Either String [(String, JsonLike)]
+handleBombAndSurroundings (b, js) (s, js') = case js' of
+  (JsonLikeObject js'') -> Right (("bomb", js) : js'')
+  JsonLikeNull -> Right [("bomb", js)]
+  _ -> Left "Error: \"surrounding\" doesn't have correct value, it should be null or Json object."  
