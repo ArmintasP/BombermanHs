@@ -21,7 +21,7 @@ runParser input =
   case parseJsonLike (stripStart (input, 0)) of
     Left errorMessage -> Left errorMessage
     Right (parsed, ([], _)) -> Right parsed
-    Right (parsed, (_, index)) -> Left $ "Error after index " ++ show index ++ ": Unexpected end of string"
+    Right (parsed, (_, index)) -> Left $ "Error after index " ++ show index ++ ": Value could not be parsed"
 
 -- Determines the value type and passes to an according parser
 parseJsonLike :: (String, Integer) -> Either String (JsonLike, (String, Integer))
@@ -38,19 +38,19 @@ parseJsonLike ((x:xs), index)
 -- If succeeds, returns (JsonlikeString, unparsed String)
 parseJsonLikeString :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseJsonLikeString ('\"':xs, index) =
-  case parseString ([], (xs, index + 2)) of
+  case parseString ([], (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
     Right (a, (xs, index)) -> Right (JsonLikeString a, (xs, index))
-parseJsonLikeString ((_:xs), index) = Left $ "Error after index " ++ show index ++ ": String should start with '\"'"
+parseJsonLikeString (_, index) = Left $ "Error after index " ++ show index ++ ": String should start with '\"'"
 
 -- Universal parser for strings, can be applied both for parsing ObjectKey and for JsonLikeString
 -- However, the first '\"' in the beggining of the string has to be removed before passing to this function
 -- If succeeds, returns (String, unparsed String)
 parseString :: (String, (String, Integer)) -> Either String (String, (String, Integer))
 parseString (a, (x:xs, index))
-  | x == '\"' = Right (a, (xs, index + 2)) -- Returns if end of string is \"
+  | x == '\"' = Right (a, (xs, index + 1)) -- Returns if end of string is \"
   | otherwise = parseString ((a ++ [x]), (xs, index + 1)) -- Proceeds to parse chars if not \"
-parseString (a, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected end of string '\"'"
+parseString (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected end of string '\"'"
 
 -- Removes the first '{' in the beggining of the object and passes to parseJsonLikeObjectKey with (accumulator, unparsed String)
 -- If succeeds, returns (JsonLikeObject, unparsed String)
@@ -59,6 +59,7 @@ parseJsonLikeObject ('{':xs, index) =
   case parseJsonLikeObjectKey ([], (stripStart (xs, index + 1))) of
     Left errorMessage -> Left errorMessage
     Right (a, (xs, index)) -> Right (JsonLikeObject a, (xs, index))
+parseJsonLikeObject (_, index) = Left $ "Error after index " ++ show index ++ ": Object should start with '{'"
 
 -- Removes the first '\"' in the beggining of the string and passes to parseString
 -- If succeeds, passes to parseJsonLikeObjectValue with (accumulator, unparsed String) and key
@@ -66,7 +67,7 @@ parseJsonLikeObjectKey :: ([(String, JsonLike)], (String, Integer)) -> Either St
 parseJsonLikeObjectKey (_, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unexpected end of object"
 parseJsonLikeObjectKey (a, ('}':xs, index)) = continueObjectParse (a, ('}':xs, index))
 parseJsonLikeObjectKey (a, ('\"':xs, index)) = 
-  case parseString ([], (xs, index + 2)) of
+  case parseString ([], (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
     Right (key, (xs, index)) -> parseJsonLikeObjectValue (a, (stripStart (xs, index))) key
 parseJsonLikeObjectKey (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Key should start with '\"'"
@@ -78,7 +79,7 @@ parseJsonLikeObjectValue (a, (':':xs, index)) key =
   case parseJsonLike (stripStart (xs, index + 1)) of
     Left errorMessage -> Left errorMessage
     Right (parsed, (xs, index)) -> continueObjectParse ((a ++ [(key, parsed)]), stripStart (xs, index))
-parseJsonLikeObjectValue (a, ((_:xs), index)) key = Left $ "Error after index " ++ show index ++ ": Unfound expected ':' after key in json object"
+parseJsonLikeObjectValue (_, (_, index)) key = Left $ "Error after index " ++ show index ++ ": Unfound expected ':' after key in json object"
 
 -- Determines whether the Object contains more Key:Value pairs (',') or if it has ended ('}')
 -- If more, passes to parseJsonLikeObjectKey with (accumulator, unparsed String)
@@ -87,7 +88,7 @@ continueObjectParse :: ([(String, JsonLike)], (String, Integer)) -> Either Strin
 continueObjectParse (a, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unexpected end of object"
 continueObjectParse (a, ('}':xs, index)) = Right (a, stripStart (xs, index + 1))
 continueObjectParse (a, (',':xs, index)) = parseJsonLikeObjectKey (a, stripStart (xs, index + 1))
-continueObjectParse (a, (_:xs, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected '}' or ',' following an object value"
+continueObjectParse (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected '}' or ',' following an object value"
 
 -- Parses single integer like 123, 111, 0, 1.
 -- Throws error if number's length is more than 1 and starts with 0
@@ -137,12 +138,10 @@ parseJsonLikeList (_, index) = Left $ "Error after index " ++ show index ++ ": M
 stripStart :: (String, Integer) -> (String, Integer)
 stripStart ([], index) = ([], index)
 stripStart ((x:[]), index)
-  | x == ' ' = stripStart ([], index + 1)
-  | isSpace x = stripStart ([], index + 2)
+  | isSpace x = stripStart ([], index + 1)
   | otherwise = ([x], index)
 stripStart ((x:xs), index)
-  | x == ' ' = stripStart (xs, index + 1)
-  | isSpace x = stripStart (xs, index + 2)
+  | isSpace x = stripStart (xs, index + 1)
   | otherwise = (x:xs, index)
 
 --------------------------------------------------------------------------
