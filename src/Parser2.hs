@@ -163,7 +163,6 @@ jsonToCoordinates json = case xs of
   Right xs' -> jsonExtract xs'
   where xs  = jsonGetMapObjects json
 
-
 -- | Extracts values from values of "bomb" and "surrounding". Parses linked list into [[Int]].
 jsonExtract :: [(String, JsonLike)] -> Either String [(String, [[Int]])]
 jsonExtract [] = Right []
@@ -172,7 +171,8 @@ jsonExtract [([], _)] = Left "Error: object key should not be an empty string."
 -- | IMPORTANT: This "bomb" requires a separate case since it's coordinates are given not in a linked list for some reason.
 jsonExtract [("bomb", JsonLikeList [JsonLikeInteger x, JsonLikeInteger x'])] = 
   if signum x >= 0 && signum x' >= 0 then Right [("bomb", [[fromInteger x, fromInteger x']])]
-  else Left "h"
+  else Left "Error: bomb coordinates should be positive"
+jsonExtract [("bomb", JsonLikeList xs)] = Left "Error: bomb must have only 2 coordinates: x & y."
 
 jsonExtract [(key, JsonLikeNull)] = Right [(key, [])]
 jsonExtract [(key, JsonLikeObject xs)]
@@ -199,7 +199,7 @@ constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)]
   where listH = constructListHead jval
         listT = constructList obj
         hasLeft = isLeft listH || isLeft listT
-constructList _  = Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object as a value."
+constructList _  = Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object (or null) as a value."
 
 -- | Takes values from a linked list's head.
 constructListHead :: [JsonLike] -> Either String [[Int]]
@@ -213,8 +213,12 @@ constructListHead js = Left "Error: \"head\" must have 2 and only 2 elements tha
 
 -- | Checks if passed json has "surrounding" and "bomb" field. They are crucial for our current program.
 jsonGetMapObjects :: JsonLike -> Either String [(String, JsonLike)]
-jsonGetMapObjects (JsonLikeObject [("bomb", js), ("surrounding", js')]) = case js' of
-  (JsonLikeObject js'') -> Right (("bomb", js) : js'')
-  JsonLikeNull -> Right (("bomb", js):[("surrounding", js')])
-  _ -> Left "Error: \"surrounding\" doesn't have correct value, it should be null or Json object."
+jsonGetMapObjects (JsonLikeObject [("bomb", js), ("surrounding", js')]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
+jsonGetMapObjects (JsonLikeObject [("surrounding", js'), ("bomb", js)]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
 jsonGetMapObjects _ = Left "Error: there should be 2 objects with keys \"bomb\" and \"surrounding\"."
+
+handleBombAndSurroundings :: (String, JsonLike) -> (String, JsonLike) -> Either String [(String, JsonLike)]
+handleBombAndSurroundings (b, js) (s, js') = case js' of
+  (JsonLikeObject js'') -> Right (("bomb", js) : js'')
+  JsonLikeNull -> Right [("bomb", js)]
+  _ -> Left "Error: \"surrounding\" doesn't have correct value, it should be null or Json object."  

@@ -1,25 +1,39 @@
 module Tests where
 import Parser2
 import Data.Either
+import MapElements (createMapElements, MapElements (MapElements))
+import qualified Lib2
 
 runJsonTests :: IO ()
-runJsonTests = do putStrLn "Loading tests from testsR..."
+runJsonTests = do putStr "\ESC[2J" -- Cleans terminal.
+                  putStrLn "Loading tests from testsR..."
                   failedR <- loadTests testsR testsRLineNum
-                  putStrLn "Loading tests from testsL..."
+                  putStrLn "\nLoading tests from testsL with error messages...\n"
                   failedL <- loadTests testsL testsLLineNum
                   putStrLn "******************************************"
-                  putStrLn ("Total number of tests failed: " ++ show (failedL + failedR) ++ ".")
+                  putStrLn ("Total number of tests failed: " ++ show (failedL + failedR) ++ ".\n")
+
+runGameTests :: IO ()
+runGameTests = do putStr "\ESC[2J" -- Cleans terminal.
+                  putStrLn "Loading tests from testsRGame..."
+                  failedR <- loadTests testsRGame testsRGameLineNum
+                  putStrLn "\nLoading tests from testsLGame with error messages...\n"
+                  failedL <- loadTests testsLGame testsLGameLineNum
+                  putStrLn "******************************************"
+                  putStrLn ("Total number of tests failed: " ++ show (failedL + failedR) ++ ".\n")
 
 
-loadTests :: [Bool] -> Int -> IO Int
+loadTests :: [IO Bool] -> Int -> IO Int
 loadTests [] n = return 0
-loadTests [x] n
-    | x = do putStrLn ("\ESC[32;40mTest (line " ++ show n ++ ") passed.\ESC[0m")
-             return 0
-    | otherwise = do putStrLn ("\ESC[31;40mTest (line " ++ show n ++ ") failed.\ESC[0m")
-                     return 1
+loadTests [x] n = do x' <- x
+                     if x' then
+                         do putStrLn ("\ESC[32;40mTest (line " ++ show n ++ ") passed.\ESC[0m")
+                            return 0
+                     else
+                         do putStrLn ("\ESC[31;40mTest (line " ++ show n ++ ") failed.\ESC[0m")
+                            return 1
 loadTests (x:xs) n = do value <- loadTests [x] n
-                        values <- loadTests xs (n + 1) 
+                        values <- loadTests xs (n + 1)
                         return (values + value)
 
 
@@ -83,21 +97,75 @@ testsL = [
     aFail "\"\\u26\"",
     aFail "\"\\uZ000\""
     ]
+testsLGameLineNum = 95
+testsRGameLineNum = 96
+
+testsRGame = [
+    gAPass "{\"bomb\":null,\"surrounding\":null}" (MapElements [] [] [] [] [] []),
+    gAPass "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}}" (MapElements [] [[1,1]] [] [] [] []),
+
+    gAPass "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}},\
+            \\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}}}}" (MapElements [] [[0,4]] [[8,7], [8,3]] [] [] []),
+
+    gAPass "{\"bomb\":null,\"surrounding\":{\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}},\
+            \\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}}}}" (MapElements [] [[0,4]] [[8,7], [8,3]] [] [] []),
+
+    gAPass "{\"surrounding\":{\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}},\
+            \\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}}}, \"bomb\":[5, 5]}" (MapElements [[5,5]] [[0,4]] [[8,7], [8,3]] [] [] [])
+    ]
+
+testsLGame = [
+    gAFail "\"random\"",
+    gAFail "{\"bomb\":null}",
+    gAFail "{\"surrounding\":null}",
+    gAFail "{\"bomb\":null,\"surrounding\":[]}",
+    gAFail "{\"bomb\":[1,2,3],\"surrounding\":null}",
+    gAFail "{\"bomb\":[1],\"surrounding\":null}",
+    gAFail "{\"bomb\":[1,2,3],\"surrounding\":null}",
+    gAFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"BADHEADDDDDDDDD\":[0,4],\"tail\":{\"head\":null,\"tail\":null}},\
+            \\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}}}}",
+
+    gAFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[0,4, 5],\"tail\":{\"head\":null,\"tail\":null}}}}"
 
 
-aPass :: String -> Bool
-aPass = isRight . runParser
-testL1 = isLeft (runParser "[1, 2, 2, hi, null]")
+            ]
+
+instaRender json = do putStr (Lib2.render (Lib2.init (Lib2.InitData 10 10) json))
+
+gAFail :: String -> IO Bool
+gAFail str = case runParser str of
+    (Left e) -> do putStr $ e ++ "\n\t^"
+                   return True
+    (Right json) -> case createMapElements json of
+        (Left e) -> do putStr $ e ++ "\n\t^"
+                       return True
+        (Right xs) -> return False
 
 
-aPass' :: String -> JsonLike -> Bool
+gAPass :: String -> MapElements -> IO Bool
+gAPass str me = case runParser str of
+    (Left e) -> return False
+    (Right json) -> case createMapElements json of
+        (Left e) -> return False
+        (Right xs) -> return (xs == me)
+
+aPass :: String -> IO Bool
+aPass = return . isRight . runParser
+
+
+aPass' :: String -> JsonLike -> IO Bool
 aPass' str expected
-    | null result = False
-    | head result == expected = True
-    | otherwise = False
+    | null result = return False
+    | head result == expected = return True
+    | otherwise = return False
     where result = rights [runParser str]
-aFail = not . aPass
-aFail' s ex = not (aPass' s ex)
+    
+aFail :: String -> IO Bool
+aFail str = case runParser str of
+    (Left e) -> do putStr $ e ++ "\n\t^"
+                   return True
+    (Right xs) -> return False
+aFail' s ex = do not <$> aPass' s ex
 
 
 -- | Do not rely heavily on this; is for testing purposes only.
@@ -113,3 +181,6 @@ instance Eq JsonLike where
   JsonLikeNull == JsonLikeNull = True
   _ == _ = False
 
+
+instance Eq MapElements where
+    (MapElements x0 x1 x2 x3 x4 x5) == (MapElements y0 y1 y2 y3 y4 y5) = and [x0 == y0, x1 == y1, x2 == y2, x3 == y3, x4 == y4, x5 == y5]
