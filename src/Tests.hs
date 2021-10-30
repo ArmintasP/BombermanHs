@@ -40,6 +40,8 @@ testsR = [
     aPass "-15",
     aPass "22222222222222222222",
     aPass' "123456789012345678901234567890" (JsonLikeInteger 123456789012345678901234567890),
+    aPass "\"\\\"\"",
+    aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"),
     aPass "\"\\u260E\"",
     aPass "\"string\"",
     aPass "null",
@@ -78,7 +80,8 @@ testsL = [
     aFail "\"\\a\"",
     aFail "\"\\u26\"",
     aFail "\"\\uZ000\"",
-    aFail "02"
+    aFail "02",
+    aFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}"
     ]
 
 

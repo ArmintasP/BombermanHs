@@ -65,8 +65,29 @@ parseJsonLikeString (_, index) = Left $ "Error after index " ++ show index ++ ":
 parseString :: (String, (String, Integer)) -> Either String (String, (String, Integer))
 parseString (a, (x:xs, index))
   | x == '\"' = Right (a, (xs, index + 1)) -- Returns if end of string is \"
+  | x == '\\' = case parseEscape (a++[x], (xs, index + 1)) of
+    Left e -> Left e
+    Right (a, (xs, index)) -> parseString (a , (xs, index))  
   | otherwise = parseString ((a ++ [x]), (xs, index + 1)) -- Proceeds to parse chars if not \"
 parseString (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected end of string '\"'"
+
+
+parseEscape :: (String, (String, Integer)) -> Either String (String, (String, Integer))
+parseEscape (a, (x:xs, index))
+  | isEscape x = Right (a ++ [x], (xs, index + 1))
+  | x == 'u' = case parseHex (a++[x], (xs, index + 1)) of
+      Left e -> Left e
+      Right s -> Right s
+  | otherwise = Left $ "Invalid escape character at index: " ++ show index
+parseEscape (a, ([], index)) = Left $ "Missing escape character at index: " ++ show index
+
+parseHex :: (String, (String, Integer)) -> Either String (String, (String, Integer))
+parseHex (a, (c1:c2:c3:c4:xs, index))
+  | all isHexDigit [c1, c2, c3, c4] = Right (a ++ [c1, c2, c3, c4], (xs, index + 4))
+  | otherwise = Left $ "Invalid hex code at index: " ++ show index
+parseHex (_, (_, index)) = Left $ "Missing hex code characters at index: " ++ show index
+
+isEscape ch = ch `elem` ['\\', '/', 'b', 'f', 'n', 'r', 't', '\"']
 
 -- Removes the first '{' in the beggining of the object and passes to parseJsonLikeObjectKey.
 -- Takes: (x:xs, index) (String, Integer) - the unparsed string (x:xs) and the index of the last 
