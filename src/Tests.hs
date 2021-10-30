@@ -49,17 +49,15 @@ testsR = [
     aPass "[]",
     aPass "[{}]",
     aPass "{\"a\":[]}",
-    aPass "[1,    \"hi\", true, false, null, {}, []]",
+    aPass "[1,    \"hi\", null, {}, []]",
     aPass "0",
     aPass "-15",
     aPass "22222222222222222222",
     aPass' "123456789012345678901234567890" (JsonLikeInteger 123456789012345678901234567890),
-    aPass "\"",
+    aPass "\"\\\"\"",
     aPass' "\"\\\"\\\\\\/\\b\\f\\n\\r\\t\"" (JsonLikeString "\\\"\\\\\\/\\b\\f\\n\\r\\t"),
     aPass "\"\\u260E\"",
     aPass "\"string\"",
-    aPass "true",
-    aPass "false",
     aPass "null",
     aPass "[1, 2, 2]",
     aPass "[1, 2, 2, \"hi\", null]",
@@ -69,15 +67,15 @@ testsR = [
     aPass "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":{\"h\":{\"i\":{\"j\":{\"k\":{\"l\":{\"m\":{\"n\":{\"o\":{\"p\":\"blah\"}}}}}}}}}}}}}}}}",
     aPass "{\"id\":1,\"pets\":[\"dog\",\"cat\",\"fish\"]}",
     aPass "{\"stuff\":[321, \"abc\"]}",
-    aPass "{\"stuff\":[{pet:\"cat\"},{car:\"Ford\"}]}",
-    aPass "{\"id\":1,\"name:\"Joe\",friends:[{id:2,name:\"Pat\",pets:[\"dog\"]},{id:3,name:\"Sue\",pets:[\"bird\",\"fish\"]}],pets:[]}",
+    aPass "{\"stuff\":[{\"pet\":\"cat\"},{\"car\":\"Ford\"}]}",
+    aPass "{\"id\":1,\"name\":\"Joe\",\"friends\":[{\"id\":2,\"name\":\"Pat\",\"pets\":[\"dog\"]},{\"id\":3,\"name\":\"Sue\",\"pets\":[\"bird\",\"fish\"]}],\"pets\":[]}",
     aPass "{\"id\":1,\"stuff\":[[1,2],[2,  3],  [ ],[3,4]]}"
     ]
 
 
 -- | testsL contains strings that are not valid JSONs.
 -- | All of them should fail (aFail should return true for each).
-testsLLineNum = 68
+testsLLineNum = 79
 testsL = [
     aFail "badstring", -- change testsLLineNum to the line number of the first list element.
     aFail "\"halfstringgood",
@@ -95,7 +93,9 @@ testsL = [
     aFail "-",
     aFail "\"\\a\"",
     aFail "\"\\u26\"",
-    aFail "\"\\uZ000\""
+    aFail "\"\\uZ000\"",
+    aFail "02",
+    aFail "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}"
     ]
 testsLGameLineNum = 95
 testsRGameLineNum = 96
