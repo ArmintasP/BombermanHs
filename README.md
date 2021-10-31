@@ -171,4 +171,6 @@ render (State _ _ _ _ _ errorMessage) = errorMessage
 ### Testing
 ![Testing demo](testing.gif)
 
-Our parser is tested with variuos json strings both checking if the json is valid and whether it suits the game logic.
+Our parser is tested with variuos json strings.
+One part of the tests is dedicated to checking the parser, whether it succeeds with correct json grammar in `aPass` and whether it throws error messages with corrupted jsons in `aFail`.
+The other part of the tests are meant to test the parser which determines whether the json suits the game logic. Accordingly `gAPass` and `gAFail` tests are used for that.
