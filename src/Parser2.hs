@@ -77,9 +77,7 @@ parseString (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Un
 parseEscape :: (String, (String, Integer)) -> Either String (String, (String, Integer))
 parseEscape (a, (x:xs, index))
   | isEscape x = Right (a ++ [x], (xs, index + 1))
-  | x == 'u' = case parseHex (a++[x], (xs, index + 1)) of
-      Left e -> Left e
-      Right s -> Right s
+  | x == 'u' = parseHex (a++[x], (xs, index + 1))
   | otherwise = Left $ "Error after index " ++ show index ++ ": Invalid escape character at index"
 parseEscape (a, ([], index)) = Left $ "Error after index " ++ show index ++ ": Missing escape character at index"
 
@@ -238,9 +236,7 @@ stripStart (x:xs, index)
 
 -- Pass JsonLike and get a list of coordinates with keys (map element names) on success.
 jsonToCoordinates :: JsonLike -> Either String [(String, [[Int]])]
-jsonToCoordinates json = case xs of
-  Left e -> Left e
-  Right xs' -> jsonExtract xs'
+jsonToCoordinates json = xs >>= jsonExtract
   where xs  = jsonGetMapObjects json
 
 -- | Extracts values from values of "bomb" and "surrounding". Parses linked list into [[Int]].
