@@ -184,13 +184,14 @@ parseJsonLikeListValues([], index) = Left $ "Error after index " ++ show index +
 parseJsonLikeListValues(']':xs, index) = Right ([], (']':xs, index + 1))
 parseJsonLikeListValues (input, index) = do
   (parsed, (xs, index)) <- parseJsonLike (stripStart (input, index))
-  if head xs == ','
-    then do 
-      (parsed, (xs, index)) <- parseJsonLikeListValues (stripStart (tail xs, index + 1))
-      if null parsed && head xs == ']'
-        then Left $ "Error after index " ++ show index ++ ": No value found after comma in list"
-        else return (parsed, (xs, index))
-    else return ([parsed], (xs, index))
+  let nextSym  | xs == [] = Left $ "Error after index " ++ show index ++ ": Unexpected end of list"
+               | head xs == ',' = do 
+                  (parsed, (xs, index)) <- parseJsonLikeListValues (stripStart (tail xs, index + 1))
+                  if null parsed && head xs == ']'
+                    then Left $ "Error after index " ++ show index ++ ": No value found after comma in list"
+                    else return (parsed, (xs, index))
+              | otherwise = return ([parsed], (xs, index))
+  nextSym
 
 -- Parses any array which starts with '[' and ends with ']', like "[1, 2 , null,\"string\",{...},[...]]"
 -- Throws error if array opening bracket '[' or closing bracket ']' is missing
