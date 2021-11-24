@@ -1,16 +1,20 @@
 module MapElements where
-import Parser2
+import GameParser (jsonToCoordinates)
+import Parser2 (JsonLike)
 
+-- | Record fields with prefix 'b' are from bomb_surrounding
 data MapElements = MapElements {
                 bomb :: [[Int]],
                 bombermans :: [[Int]],
                 bricks :: [[Int]],
                 gates :: [[Int]],
                 ghosts :: [[Int]],
-                wall :: [[Int]]}
+                wall :: [[Int]],
+                bGhosts :: [[Int]],
+                bBricks :: [[Int]]}
                 deriving (Show, Read)
 
-emptyMapElements = MapElements [] [] [] [] [] []
+emptyMapElements = MapElements [] [] [] [] [] [] [] []
 
 getBombs = bomb
 
@@ -40,11 +44,18 @@ createMapElements' _ (Left error) = Left error
 createMapElements' (Right []) s = s
 createMapElements' (Right [(str, cords)]) (Right s)  = case str of
   "bomb" -> Right s {bomb = cords}
-  "bombermans" -> Right s {bombermans = cords}
-  "bricks" -> Right s {bricks = cords}
-  "gates" -> Right s {gates = cords}
-  "ghosts" -> Right s {ghosts = cords}
-  "wall" -> Right s {wall = cords}
+  "surrounding_bombermans" -> Right s {bombermans = cords}
+  "surrounding_bricks" -> Right s {bricks = cords}
+  "surrounding_gates" -> Right s {gates = cords}
+  "surrounding_ghosts" -> Right s {ghosts = cords}
+  "surrounding_wall" -> Right s {wall = cords}
+   -- Flush bomb_surrounding bombermans, gates & walls; they are useless for now
+  "bomb_surrounding_bombermans" -> Right s
+  "bomb_surrounding_gates" -> Right s
+  "bomb_surrounding_wall" -> Right s
+
+  "bomb_surrounding_ghosts" -> Right s {bGhosts = cords}
+  "bomb_surrounding_bricks" -> Right s {bBricks = cords}
   _ -> Left ("Error: a new map object called \"" ++ str ++ "\" was detected. Please update MapElements and programming logic related to the new map object.")
 createMapElements' (Right (x:xs)) s = createMapElements' (Right xs) (createMapElements' (Right [x]) s)
 
@@ -58,6 +69,3 @@ gatesSym = "\ESC[30;46m" ++ "X"
 ghostsSym = "\ESC[30;41m" ++ "H"
 wallSym = "\ESC[30;100m" ++  "#"
 bombsSym = "\ESC[30;102m" ++  "b"
-
-testdata :: Either String [(String, [[Int]])]
-testdata = Right [("bambermans",[[1,1]]),("bricks",[[8,7],[8,3],[8,1],[6,7],[6,5],[5,8],[5,4],[3,6],[3,4],[2,3],[2,1],[1,8],[1,7],[1,6]]),("gates",[]),("ghosts",[]),("wall",[[8,8],[8,6],[8,4],[8,2],[8,0],[7,0],[6,8],[6,6],[6,4],[6,2],[6,0],[5,0],[4,8],[4,6],[4,4],[4,2],[4,0],[3,0],[2,8],[2,6],[2,4],[2,2],[2,0],[1,0],[0,8],[0,7],[0,6],[0,5],[0,4],[0,3],[0,2],[0,1],[0,0]])]
