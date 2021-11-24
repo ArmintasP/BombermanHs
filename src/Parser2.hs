@@ -13,7 +13,7 @@ data JsonLike
   deriving (Show)
 
 testJsonString :: String
-testJsonString = "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}},\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":[8,1],\"tail\":{\"head\":[6,7],\"tail\":{\"head\":[6,5],\"tail\":{\"head\":[5,8],\"tail\":{\"head\":[5,4],\"tail\":{\"head\":[3,6],\"tail\":{\"head\":[3,4],\"tail\":{\"head\":[2,3],\"tail\":{\"head\":[2,1],\"tail\":{\"head\":[1,8],\"tail\":{\"head\":[1,7],\"tail\":{\"head\":[1,6],\"tail\":{\"head\":null,\"tail\":null}}}}}}}}}}}}}}},\"gates\":{\"head\":null,\"tail\":null},\"ghosts\":{\"head\":null,\"tail\":null},\"wall\":{\"head\":[8,8],\"tail\":{\"head\":[8,6],\"tail\":{\"head\":[8,4],\"tail\":{\"head\":[8,2],\"tail\":{\"head\":[8,0],\"tail\":{\"head\":[7,0],\"tail\":{\"head\":[6,8],\"tail\":{\"head\":[6,6],\"tail\":{\"head\":[6,4],\"tail\":{\"head\":[6,2],\"tail\":{\"head\":[6,0],\"tail\":{\"head\":[5,0],\"tail\":{\"head\":[4,8],\"tail\":{\"head\":[4,6],\"tail\":{\"head\":[4,4],\"tail\":{\"head\":[4,2],\"tail\":{\"head\":[4,0],\"tail\":{\"head\":[3,0],\"tail\":{\"head\":[2,8],\"tail\":{\"head\":[2,6],\"tail\":{\"head\":[2,4],\"tail\":{\"head\":[2,2],\"tail\":{\"head\":[2,0],\"tail\":{\"head\":[1,0],\"tail\":{\"head\":[0,8],\"tail\":{\"head\":[0,7],\"tail\":{\"head\":[0,6],\"tail\":{\"head\":[0,5],\"tail\":{\"head\":[0,4],\"tail\":{\"head\":[0,3],\"tail\":{\"head\":[0,2],\"tail\":{\"head\":[0,1],\"tail\":{\"head\":[0,0],\"tail\":{\"head\":null,\"tail\":null}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"
+testJsonString = "{\"bomb\":[\"hi\"],\"bomb_surrounding\":{\"bricks\":[[2,1]],\"wall\":[[0,0],[0,1],[0,2],[1,0],[2,0],[2,2]]},\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}},\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":[8,1],\"tail\":{\"head\":[6,7],\"tail\":{\"head\":[6,5],\"tail\":{\"head\":[5,8],\"tail\":{\"head\":[5,4],\"tail\":{\"head\":[3,6],\"tail\":{\"head\":[3,4],\"tail\":{\"head\":[2,3],\"tail\":{\"head\":[2,1],\"tail\":{\"head\":[1,8],\"tail\":{\"head\":[1,7],\"tail\":{\"head\":[1,6],\"tail\":{\"head\":null,\"tail\":null}}}}}}}}}}}}}}},\"gates\":{\"head\":null,\"tail\":null},\"ghosts\":{\"head\":null,\"tail\":null},\"wall\":{\"head\":[8,8],\"tail\":{\"head\":[8,6],\"tail\":{\"head\":[8,4],\"tail\":{\"head\":[8,2],\"tail\":{\"head\":[8,0],\"tail\":{\"head\":[7,0],\"tail\":{\"head\":[6,8],\"tail\":{\"head\":[6,6],\"tail\":{\"head\":[6,4],\"tail\":{\"head\":[6,2],\"tail\":{\"head\":[6,0],\"tail\":{\"head\":[5,0],\"tail\":{\"head\":[4,8],\"tail\":{\"head\":[4,6],\"tail\":{\"head\":[4,4],\"tail\":{\"head\":[4,2],\"tail\":{\"head\":[4,0],\"tail\":{\"head\":[3,0],\"tail\":{\"head\":[2,8],\"tail\":{\"head\":[2,6],\"tail\":{\"head\":[2,4],\"tail\":{\"head\":[2,2],\"tail\":{\"head\":[2,0],\"tail\":{\"head\":[1,0],\"tail\":{\"head\":[0,8],\"tail\":{\"head\":[0,7],\"tail\":{\"head\":[0,6],\"tail\":{\"head\":[0,5],\"tail\":{\"head\":[0,4],\"tail\":{\"head\":[0,3],\"tail\":{\"head\":[0,2],\"tail\":{\"head\":[0,1],\"tail\":{\"head\":[0,0],\"tail\":{\"head\":null,\"tail\":null}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"
 
 -- The starting function for json parsing.
 -- Takes: (input) String, where (input) is a json string.
@@ -224,77 +224,3 @@ stripStart ([x], index)
 stripStart (x:xs, index)
   | isSpace x = stripStart (xs, index + 1)
   | otherwise = (x:xs, index)
-
-
---------------------------------------------------------------------------
---  Left String should notify about any errors:
---    if the amount of ints in array (coordinates) is not 2
---    if there are no "bomb" or "surroundings" keys
---    if it cointains wrong types, values, etc.
---  Right Structure should look like the following: [("bomb/bricks/anythingElse", [[x, y]])] [(String, [[Int]])]
-
-
--- Pass JsonLike and get a list of coordinates with keys (map element names) on success.
-jsonToCoordinates :: JsonLike -> Either String [(String, [[Int]])]
-jsonToCoordinates json = xs >>= jsonExtract
-  where xs  = jsonGetMapObjects json
-
--- | Extracts values from values of "bomb" and "surrounding". Parses linked list into [[Int]].
-jsonExtract :: [(String, JsonLike)] -> Either String [(String, [[Int]])]
-jsonExtract [] = Right []
-jsonExtract [([], _)] = Left "Error: object key should not be an empty string."
-
--- | IMPORTANT: This "bomb" requires a separate case since it's coordinates are given not in a linked list for some reason.
-jsonExtract [("bomb", JsonLikeList [JsonLikeInteger x, JsonLikeInteger x'])] =
-  if signum x >= 0 && signum x' >= 0 then Right [("bomb", [[fromInteger x, fromInteger x']])]
-  else Left "Error: bomb coordinates should be positive"
-jsonExtract [("bomb", JsonLikeList xs)] = Left "Error: bomb must have only 2 coordinates: x & y."
-
-jsonExtract [(key, JsonLikeNull)] = Right [(key, [])]
-jsonExtract [(key, JsonLikeObject xs)]
-  | isLeft coordinates = Left $ head (lefts [coordinates])
-  | otherwise = Right [(key, concat coordinates)]
-  where coordinates = constructList xs
---jsonExtract [(key, JsonLikeList [])] = Right [(key, [])]
-jsonExtract [(key, _)] = Left ("Error: \"" ++ key ++ "\" should have an object (a linked list) as a value, not a list, string or integer.")
-jsonExtract (x:xs)
-  | hasLeft = Left (intercalate "\n" (lefts [pair, pairs]))
-  | otherwise = Right (concat (rights [pair, pairs]))
-  where pair = jsonExtract [x]
-        pairs = jsonExtract xs
-        hasLeft = isLeft pair || isLeft pairs
-
-
-
--- | Constructs a list of coordinates.
-constructList :: [(String, JsonLike)] -> Either String [[Int]]
-constructList [("head", JsonLikeNull) , ("tail", JsonLikeNull)] = Right []
-constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)]
-  | hasLeft = Left (intercalate "\n" (lefts [listH, listT]))
-  | otherwise = Right (concat (rights [listH, listT]))
-  where listH = constructListHead jval
-        listT = constructList obj
-        hasLeft = isLeft listH || isLeft listT
-constructList _  = Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object (or null) as a value."
-
--- | Takes values from a linked list's head.
-constructListHead :: [JsonLike] -> Either String [[Int]]
-constructListHead [] = Left "Error: if \"head\" has an empty list, its value should be null. Otherwise populate it with coordinates (2 positive integers)."
-constructListHead [js, js'] = case (js, js') of
-  (JsonLikeInteger x, JsonLikeInteger x') -> if signum x >= 0 && signum x' >= 0 then Right [[fromInteger x, fromInteger x']]
-    else Left "Error: \"head\" has a list with negative integer(s)."
-  (_, _) -> Left "Error: \"head\" has a list containing other types than positive integers."
-
-constructListHead js = Left "Error: \"head\" must have 2 and only 2 elements that are positive integers that represent coordinates of an object."
-
--- | Checks if passed json has "surrounding" and "bomb" field. They are crucial for our current program.
-jsonGetMapObjects :: JsonLike -> Either String [(String, JsonLike)]
-jsonGetMapObjects (JsonLikeObject [("bomb", js), ("surrounding", js')]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
-jsonGetMapObjects (JsonLikeObject [("surrounding", js'), ("bomb", js)]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
-jsonGetMapObjects _ = Left "Error: there should be 2 objects with keys \"bomb\" and \"surrounding\"."
-
-handleBombAndSurroundings :: (String, JsonLike) -> (String, JsonLike) -> Either String [(String, JsonLike)]
-handleBombAndSurroundings (b, js) (s, js') = case js' of
-  (JsonLikeObject js'') -> Right (("bomb", js) : js'')
-  JsonLikeNull -> Right [("bomb", js)]
-  _ -> Left "Error: \"surrounding\" doesn't have correct value, it should be null or Json object."
