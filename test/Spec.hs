@@ -1,16 +1,25 @@
-module Test where
+module Spec where
 
 import Test.HUnit
 import Data.Either
-import Parser2
+import Parser3
 
 main :: IO ()
 main = do
-  putStrLn "Loading acceptance tests..."
-  a <- runTestTT acceptanceTests
+  putStrLn "\nLoading acceptance tests..."
+  aResults <- runTestTT acceptanceTests
+  putStrLn "\n**************************\n"
   putStrLn "Loading rejection tests..."
-  r <- runTestTT rejectionTests
-  putStrLn "**************************"
+  rResults <- runTestTT rejectionTests
+  putStrLn "\n**************************\n"
+  let
+    totalFailures = failures aResults + failures rResults
+    totalErrors = errors aResults + errors rResults
+  if (totalErrors + totalFailures == 0)
+    then
+      putStrLn ("Tests have been completed succesfully.\n")
+    else
+      putStrLn ("Total number of tests failed: " ++ show totalFailures ++ ".\n")
 
 acceptanceTests = TestList 
   [
@@ -31,7 +40,6 @@ acceptanceTests = TestList
     TestLabel "aTest15" aTest15,
     TestLabel "aTest16" aTest16,
     TestLabel "aTest17" aTest17,
-    TestLabel "aTest20" aTest20,
     TestLabel "aTest21" aTest21,
     TestLabel "aTest22" aTest22,
     TestLabel "aTest23" aTest23,
@@ -98,7 +106,6 @@ aTest14 = TestCase (assertBool "{\"stuff\":[{\"pet\":\"cat\"},{\"car\":\"Ford\"}
 aTest15 = TestCase (assertBool "{\"id\":1,\"name\":\"Joe\",\"friends\":[{\"id\":2,\"name\":\"Pat\",\"pets\":[\"dog\"]},{\"id\":3,\"name\":\"Sue\",\"pets\":[\"bird\",\"fish\"]}],\"pets\":[]}" (isRight(runParser "{\"id\":1,\"name\":\"Joe\",\"friends\":[{\"id\":2,\"name\":\"Pat\",\"pets\":[\"dog\"]},{\"id\":3,\"name\":\"Sue\",\"pets\":[\"bird\",\"fish\"]}],\"pets\":[]}")))
 aTest16 = TestCase (assertBool "[ 4]" (isRight(runParser "[ 4]")))
 aTest17 = TestCase (assertBool "{\"id\":1,\"stuff\":[[1,2],[2,  3],  [ ],[3,4]]}" (isRight(runParser "{\"id\":1,\"stuff\":[[1,2],[2,  3],  [ ],[3,4]]}")))
-aTest20 = TestCase (assertBool "[-0]" (isRight(runParser "[-0]")))
 aTest21 = TestCase (assertBool "[-123]" (isRight(runParser "[-123]")))
 aTest22 = TestCase (assertBool "[-1]" (isRight(runParser "[-1]")))
 aTest23 = TestCase (assertBool "[-0]" (isRight(runParser "[-0]")))

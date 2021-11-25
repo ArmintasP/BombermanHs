@@ -141,7 +141,11 @@ parseJsonLikeObjectValue (_, (_, index)) key = Left $ "Error after index " ++ sh
 continueObjectParse :: ([(String, JsonLike)], (String, Integer)) -> Either String ([(String, JsonLike)], (String, Integer))
 continueObjectParse (a, ([], index)) = Left $ "Error after index " ++ show index ++ ": Unexpected end of object"
 continueObjectParse (a, ('}':xs, index)) = Right (a, stripStart (xs, index + 1))
-continueObjectParse (a, (',':xs, index)) = parseJsonLikeObjectKey (a, stripStart (xs, index + 1))
+continueObjectParse (a, (',':xs, index)) = 
+  if '}' == head (fst y)
+    then Left $ "Error after index " ++ show index ++ ": There should be a key:value pair after ',' in an object"
+  else parseJsonLikeObjectKey (a, y)
+  where y = stripStart (xs, index + 1)
 continueObjectParse (_, (_, index)) = Left $ "Error after index " ++ show index ++ ": Unfound expected '}' or ',' following an object value"
 
 -- Parses single integer like 123, 111, 0, 1, -19.
@@ -154,8 +158,11 @@ parseJsonLikeInteger :: ([Char], Integer) -> Either [Char] (JsonLike, ([Char], I
 parseJsonLikeInteger (input, index) =
   let str = takeWhile (\x -> isDigit x || x == '-') input
       strLen = length str
+      tStr = tail str
    in if strLen == 1 && head str == '-'
         then Left $ "Error after index " ++ show index ++ ": Missing numeric value after -"
+      else if strLen > 2 && head str == '-' && head tStr == '0'
+        then Left $ "Error after index " ++ show (index + 1) ++ ": Number cannot start with 0"
       else if strLen > 1 && head str == '0'
         then Left $ "Error after index " ++ show index ++ ": Number cannot start with 0"
       else Right (JsonLikeInteger (read str), (drop strLen input, index + toInteger strLen))
@@ -181,7 +188,7 @@ parseJsonLikeNull (input, index) =
 --    where [JsonLike] - a list of any JsonLike values, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
 parseJsonLikeListValues :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
 parseJsonLikeListValues([], index) = Left $ "Error after index " ++ show index ++ ": Unexpected end of list"
-parseJsonLikeListValues(']':xs, index) = Right ([], (']':xs, index + 1))
+parseJsonLikeListValues(']':xs, index) = Right ([], stripStart (']':xs, index))
 parseJsonLikeListValues (input, index) = do
   (parsed, (xs, index)) <- parseJsonLike (stripStart (input, index))
   let nextSym  | xs == [] = Left $ "Error after index " ++ show index ++ ": Unexpected end of list"
@@ -203,9 +210,9 @@ parseJsonLikeListValues (input, index) = do
 --    where JsonLike - a JsonLikeList of any JsonLike values, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
 parseJsonLikeList :: (String, Integer) -> Either String (JsonLike, (String, Integer))
 parseJsonLikeList ('[':xs, index) = do
-  (parsed, (xs, index)) <- parseJsonLikeListValues (stripStart (xs, index))
+  (parsed, (xs, index)) <- parseJsonLikeListValues (stripStart (xs, index + 1))
   if head xs == ']'
-    then return (JsonLikeList parsed, (tail xs, index + 1))
+    then return (JsonLikeList parsed, stripStart (tail xs, index + 1))
     else Left $ "Error after index " ++ show index ++ ": Missing array closing bracket ']'"
 parseJsonLikeList (_, index) = Left $ "Error after index " ++ show index ++ ": Missing array opening bracket '['"
 
