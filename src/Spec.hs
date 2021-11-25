@@ -18,12 +18,19 @@ acceptanceTests = TestList
     TestLabel "aTest2" aTest2,
     TestLabel "aTest3" aTest3,
     TestLabel "aTest4" aTest4,
+    TestLabel "aTest5" aTest5,
     TestLabel "aTest6" aTest6,
     TestLabel "aTest7" aTest7,
+    TestLabel "aTest8" aTest8,
+    TestLabel "aTest9" aTest9,
     TestLabel "aTest10" aTest10,
     TestLabel "aTest11" aTest11,
     TestLabel "aTest12" aTest12,
+    TestLabel "aTest13" aTest13,
+    TestLabel "aTest14" aTest14,
+    TestLabel "aTest15" aTest15,
     TestLabel "aTest16" aTest16,
+    TestLabel "aTest17" aTest17,
     TestLabel "aTest20" aTest20,
     TestLabel "aTest21" aTest21,
     TestLabel "aTest22" aTest22,
@@ -78,12 +85,19 @@ aTest1 = TestCase (assertBool "[[]   ]" (isRight(runParser "[[]   ]")))
 aTest2 = TestCase (assertBool "[\"\"]" (isRight(runParser "[\"\"]")))
 aTest3 = TestCase (assertBool "[]" (isRight(runParser "[]")))
 aTest4 = TestCase (assertBool "[\"a\"]" (isRight(runParser "[\"a\"]")))
+aTest5 = TestCase (assertBool "{\"id\":1,\"address\":{\"addr1\":\"123 Main\",\"addr2\":null,\"city\":\"Houston\",\"state\":\"TX\"}}" (isRight(runParser "{\"id\":1,\"address\":{\"addr1\":\"123 Main\",\"addr2\":null,\"city\":\"Houston\",\"state\":\"TX\"}}")))
 aTest6 = TestCase (assertBool "[null, 1, \"1\", {}]" (isRight(runParser "[null, 1, \"1\", {}]")))
 aTest7 = TestCase (assertBool "[null]" (isRight(runParser "[null]")))
+aTest8 = TestCase (assertBool "{\"id\":1,\"pets\":[\"dog\",\"cat\",\"fish\"]}" (isRight(runParser "{\"id\":1,\"pets\":[\"dog\",\"cat\",\"fish\"]}")))
+aTest9 = TestCase (assertBool "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":{\"h\":{\"i\":{\"j\":{\"k\":{\"l\":{\"m\":{\"n\":{\"o\":{\"p\":\"blah\"}}}}}}}}}}}}}}}}" (isRight(runParser "{\"a\":{\"b\":{\"c\":{\"d\":{\"e\":{\"f\":{\"g\":{\"h\":{\"i\":{\"j\":{\"k\":{\"l\":{\"m\":{\"n\":{\"o\":{\"p\":\"blah\"}}}}}}}}}}}}}}}}")))
 aTest10 = TestCase (assertBool " [1]" (isRight(runParser " [1]")))
 aTest11 = TestCase (assertBool "[1,null,null,null,2]" (isRight(runParser "[1,null,null,null,2]")))
 aTest12 = TestCase (assertBool "[2] " (isRight(runParser "[2] ")))
+aTest13 = TestCase (assertBool "{\"stuff\":[321, \"abc\"]}" (isRight(runParser "{\"stuff\":[321, \"abc\"]}")))
+aTest14 = TestCase (assertBool "{\"stuff\":[{\"pet\":\"cat\"},{\"car\":\"Ford\"}]}" (isRight(runParser "{\"stuff\":[{\"pet\":\"cat\"},{\"car\":\"Ford\"}]}")))
+aTest15 = TestCase (assertBool "{\"id\":1,\"name\":\"Joe\",\"friends\":[{\"id\":2,\"name\":\"Pat\",\"pets\":[\"dog\"]},{\"id\":3,\"name\":\"Sue\",\"pets\":[\"bird\",\"fish\"]}],\"pets\":[]}" (isRight(runParser "{\"id\":1,\"name\":\"Joe\",\"friends\":[{\"id\":2,\"name\":\"Pat\",\"pets\":[\"dog\"]},{\"id\":3,\"name\":\"Sue\",\"pets\":[\"bird\",\"fish\"]}],\"pets\":[]}")))
 aTest16 = TestCase (assertBool "[ 4]" (isRight(runParser "[ 4]")))
+aTest17 = TestCase (assertBool "{\"id\":1,\"stuff\":[[1,2],[2,  3],  [ ],[3,4]]}" (isRight(runParser "{\"id\":1,\"stuff\":[[1,2],[2,  3],  [ ],[3,4]]}")))
 aTest20 = TestCase (assertBool "[-0]" (isRight(runParser "[-0]")))
 aTest21 = TestCase (assertBool "[-123]" (isRight(runParser "[-123]")))
 aTest22 = TestCase (assertBool "[-1]" (isRight(runParser "[-1]")))
@@ -169,6 +183,9 @@ rejectionTests = TestList
     TestLabel "rTest33" rTest33,
     TestLabel "rTest34" rTest34,
     TestLabel "rTest35" rTest35,
+    TestLabel "rTest35" rTest36,
+    TestLabel "rTest35" rTest37,
+    TestLabel "rTest35" rTest38,
     TestLabel "rTest63" rTest63,
     TestLabel "rTest64" rTest64,
     TestLabel "rTest65" rTest65,
@@ -297,6 +314,9 @@ rTest32 = TestCase (assertBool "\"a\": \"b\"" (isLeft(runParser "\"a\": \"b\""))
 rTest33 = TestCase (assertBool "}" (isLeft(runParser "}")))
 rTest34 = TestCase (assertBool "[++1234]" (isLeft(runParser "[++1234]")))
 rTest35 = TestCase (assertBool "[+1]" (isLeft(runParser "[+1]")))
+rTest36 = TestCase (assertBool "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}" (isLeft(runParser "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}")))
+rTest37 = TestCase (assertBool "{\"key\":\"bad_value }\"" (isLeft(runParser "{\"key\":\"bad_value }\"")))
+rTest38 = TestCase (assertBool "{badkey : 2}" (isLeft(runParser "{badkey : 2}")))
 rTest63 = TestCase (assertBool "[1+2]" (isLeft(runParser "[1+2]")))
 rTest64 = TestCase (assertBool "[0x1]" (isLeft(runParser "[0x1]")))
 rTest65 = TestCase (assertBool "[0x42]" (isLeft(runParser "[0x42]")))
