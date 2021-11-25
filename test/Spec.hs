@@ -1,4 +1,4 @@
-module Spec where
+module Main where
 
 import Test.HUnit
 import Data.Either
