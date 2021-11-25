@@ -4,7 +4,7 @@ module Lib3 where
 
 import Data.Either as E (Either (..))
 import Data.List as L (lookup)
-import Parser2 (JsonLike(..), runParser)
+import Parser3 (JsonLike(..), runParser)
 import Data.Data
 data InitData = InitData
   { gameWidth :: Int,
