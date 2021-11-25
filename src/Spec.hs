@@ -2,7 +2,7 @@ module Test where
 
 import Test.HUnit
 import Data.Either
-import Parser3
+import Parser2
 
 main :: IO ()
 main = do
@@ -18,16 +18,12 @@ acceptanceTests = TestList
     TestLabel "aTest2" aTest2,
     TestLabel "aTest3" aTest3,
     TestLabel "aTest4" aTest4,
-    TestLabel "aTest5" aTest5,
     TestLabel "aTest6" aTest6,
     TestLabel "aTest7" aTest7,
-    TestLabel "aTest8" aTest8,
-    TestLabel "aTest9" aTest9,
     TestLabel "aTest10" aTest10,
     TestLabel "aTest11" aTest11,
     TestLabel "aTest12" aTest12,
     TestLabel "aTest16" aTest16,
-    TestLabel "aTest18" aTest18,
     TestLabel "aTest20" aTest20,
     TestLabel "aTest21" aTest21,
     TestLabel "aTest22" aTest22,
@@ -43,12 +39,8 @@ acceptanceTests = TestList
     TestLabel "aTest41" aTest41,
     TestLabel "aTest42" aTest42,
     TestLabel "aTest43" aTest43,
-    TestLabel "aTest44" aTest44,
-    TestLabel "aTest45" aTest45,
-    TestLabel "aTest46" aTest46,
     TestLabel "aTest47" aTest47,
     TestLabel "aTest48" aTest48,
-    TestLabel "aTest49" aTest49,
     TestLabel "aTest50" aTest50,
     TestLabel "aTest51" aTest51,
     TestLabel "aTest52" aTest52,
@@ -72,18 +64,13 @@ acceptanceTests = TestList
     TestLabel "aTest70" aTest70,
     TestLabel "aTest71" aTest71,
     TestLabel "aTest72" aTest72,
-    TestLabel "aTest73" aTest73,
     TestLabel "aTest74" aTest74,
     TestLabel "aTest75" aTest75,
-    TestLabel "aTest76" aTest76,
     TestLabel "aTest77" aTest77,
     TestLabel "aTest79" aTest79,
     TestLabel "aTest80" aTest80,
-    TestLabel "aTest81" aTest81,
     TestLabel "aTest82" aTest82,
     TestLabel "aTest83" aTest83,
-    TestLabel "aTest84" aTest84,
-    TestLabel "aTest85" aTest85,
     TestLabel "aTest86" aTest86
   ]
 
@@ -91,16 +78,12 @@ aTest1 = TestCase (assertBool "[[]   ]" (isRight(runParser "[[]   ]")))
 aTest2 = TestCase (assertBool "[\"\"]" (isRight(runParser "[\"\"]")))
 aTest3 = TestCase (assertBool "[]" (isRight(runParser "[]")))
 aTest4 = TestCase (assertBool "[\"a\"]" (isRight(runParser "[\"a\"]")))
-aTest5 = TestCase (assertBool "[false]" (isRight(runParser "[false]")))
 aTest6 = TestCase (assertBool "[null, 1, \"1\", {}]" (isRight(runParser "[null, 1, \"1\", {}]")))
 aTest7 = TestCase (assertBool "[null]" (isRight(runParser "[null]")))
-aTest8 = TestCase (assertBool "[1" (isRight(runParser "[1")))
-aTest9 = TestCase (assertBool "]" (isRight(runParser "]")))
 aTest10 = TestCase (assertBool " [1]" (isRight(runParser " [1]")))
 aTest11 = TestCase (assertBool "[1,null,null,null,2]" (isRight(runParser "[1,null,null,null,2]")))
 aTest12 = TestCase (assertBool "[2] " (isRight(runParser "[2] ")))
 aTest16 = TestCase (assertBool "[ 4]" (isRight(runParser "[ 4]")))
-aTest18 = TestCase (assertBool "" (isRight(runParser "")))
 aTest20 = TestCase (assertBool "[-0]" (isRight(runParser "[-0]")))
 aTest21 = TestCase (assertBool "[-123]" (isRight(runParser "[-123]")))
 aTest22 = TestCase (assertBool "[-1]" (isRight(runParser "[-1]")))
@@ -116,14 +99,10 @@ aTest39 = TestCase (assertBool "{\"foobar\": 42}" (isRight(runParser "{\"foobar\
 aTest41 = TestCase (assertBool "{\"x\":[{\"id\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}], \"id\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}" (isRight(runParser "{\"x\":[{\"id\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}], \"id\": \"xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx\"}")))
 aTest42 = TestCase (assertBool "{\"a\":[]}" (isRight(runParser "{\"a\":[]}")))
 aTest43 = TestCase (assertBool "{\"title\":\"Полтора Землекопа\" }" (isRight(runParser "{\"title\":\"Полтора Землекопа\" }")))
-aTest44 = TestCase (assertBool "{" (isRight(runParser "{")))
-aTest45 = TestCase (assertBool "\"a\": \"b\"" (isRight(runParser "\"a\": \"b\"")))
-aTest46 = TestCase (assertBool "}" (isRight(runParser "}")))
 aTest47 = TestCase (assertBool "[\"`Īካ\"]" (isRight(runParser "[\"`Īካ\"]")))
 aTest48 = TestCase (assertBool "[\"??????\"]" (isRight(runParser "[\"??????\"]")))
-aTest49 = TestCase (assertBool "[\"????????????\"]" (isRight(runParser "[\"????????????\"]")))
 aTest50 = TestCase (assertBool "[\"\\u0000\"]" (isRight(runParser "[\"\\u0000\"]")))
-aTest51 = TestCase (assertBool "[\"\"\"]" (isRight(runParser "[\"\"\"]")))
+aTest51 = TestCase (assertBool "[\"\\\"\"]" (isRight(runParser "[\"\\\"\"]")))
 aTest52 = TestCase (assertBool "[\"a/*b*/c/*d//e\"]" (isRight(runParser "[\"a/*b*/c/*d//e\"]")))
 aTest53 = TestCase (assertBool "[\"\a\"]" (isRight(runParser "[\"\a\"]")))
 aTest54 = TestCase (assertBool "[\"\n\"]" (isRight(runParser "[\"\n\"]")))
@@ -138,25 +117,20 @@ aTest62 = TestCase (assertBool "[\"π\"]" (isRight(runParser "[\"π\"]")))
 aTest63 = TestCase (assertBool "[\"asd \"]" (isRight(runParser "[\"asd \"]")))
 aTest64 = TestCase (assertBool "\" \"" (isRight(runParser "\" \"")))
 aTest65 = TestCase (assertBool "[\"??????\"]" (isRight(runParser "[\"??????\"]")))
-aTest66 = TestCase (assertBool "[\"ࠡ\"]" (isRight(runParser "[\"ࠡ\"]")))
+aTest66 = TestCase (assertBool "[\"\"]" (isRight(runParser "[\"\"]")))
 aTest67 = TestCase (assertBool "[\"ģ\"]" (isRight(runParser "[\"ģ\"]")))
 aTest68 = TestCase (assertBool "[\"aクリス\"]" (isRight(runParser "[\"aクリス\"]")))
 aTest69 = TestCase (assertBool "[\"\"]" (isRight(runParser "[\"\"]")))
 aTest70 = TestCase (assertBool "[\"ꙭ\"]" (isRight(runParser "[\"ꙭ\"]")))
 aTest71 = TestCase (assertBool "[\"⍂㈴⍂\"]" (isRight(runParser "[\"⍂㈴⍂\"]")))
 aTest72 = TestCase (assertBool "[\"??????\"]" (isRight(runParser "[\"??????\"]")))
-aTest73 = TestCase (assertBool "[\"??????\"]" (isRight(runParser "[\"??????\"]")))
 aTest74 = TestCase (assertBool "[\"€𝄞\"]" (isRight(runParser "[\"€𝄞\"]")))
 aTest75 = TestCase (assertBool "[\"aa\"]" (isRight(runParser "[\"aa\"]")))
-aTest76 = TestCase (assertBool "false" (isRight(runParser "false")))
 aTest77 = TestCase (assertBool "42" (isRight(runParser "42")))
 aTest79 = TestCase (assertBool "null" (isRight(runParser "null")))
 aTest80 = TestCase (assertBool "\"asd\"" (isRight(runParser "\"asd\"")))
-aTest81 = TestCase (assertBool "true" (isRight(runParser "true")))
 aTest82 = TestCase (assertBool "\"\"" (isRight(runParser "\"\"")))
 aTest83 = TestCase (assertBool "[\"a\"]" (isRight(runParser "[\"a\"]")))
-aTest84 = TestCase (assertBool "" (isRight(runParser "")))
-aTest85 = TestCase (assertBool "[true]" (isRight(runParser "[true]")))
 aTest86 = TestCase (assertBool " [] " (isRight(runParser " [] ")))
 
 
@@ -179,7 +153,6 @@ rejectionTests = TestList
     TestLabel "rTest15" rTest15,
     TestLabel "rTest16" rTest16,
     TestLabel "rTest17" rTest17,
-    TestLabel "rTest18" rTest18,
     TestLabel "rTest19" rTest19,
     TestLabel "rTest20" rTest20,
     TestLabel "rTest21" rTest21,
@@ -188,12 +161,12 @@ rejectionTests = TestList
     TestLabel "rTest24" rTest24,
     TestLabel "rTest25" rTest25,
     TestLabel "rTest26" rTest26,
-    TestLabel "rTest27" rTest27,
     TestLabel "rTest28" rTest28,
     TestLabel "rTest29" rTest29,
     TestLabel "rTest30" rTest30,
     TestLabel "rTest31" rTest31,
     TestLabel "rTest32" rTest32,
+    TestLabel "rTest33" rTest33,
     TestLabel "rTest34" rTest34,
     TestLabel "rTest35" rTest35,
     TestLabel "rTest63" rTest63,
@@ -217,14 +190,12 @@ rejectionTests = TestList
     TestLabel "rTest81" rTest81,
     TestLabel "rTest82" rTest82,
     TestLabel "rTest85" rTest85,
-    TestLabel "rTest86" rTest86,
     TestLabel "rTest87" rTest87,
     TestLabel "rTest88" rTest88,
     TestLabel "rTest89" rTest89,
     TestLabel "rTest90" rTest90,
     TestLabel "rTest92" rTest92,
     TestLabel "rTest93" rTest93,
-    TestLabel "rTest94" rTest94,
     TestLabel "rTest95" rTest95,
     TestLabel "rTest96" rTest96,
     TestLabel "rTest97" rTest97,
@@ -259,9 +230,7 @@ rejectionTests = TestList
     TestLabel "rTest152" rTest152,
     TestLabel "rTest153" rTest153,
     TestLabel "rTest154" rTest154,
-    TestLabel "rTest155" rTest155,
     TestLabel "rTest156" rTest156,
-    TestLabel "rTest157" rTest157,
     TestLabel "rTest158" rTest158,
     TestLabel "rTest159" rTest159,
     TestLabel "rTest160" rTest160,
@@ -272,7 +241,6 @@ rejectionTests = TestList
     TestLabel "rTest166" rTest166,
     TestLabel "rTest167" rTest167,
     TestLabel "rTest168" rTest168,
-    TestLabel "rTest169" rTest169,
     TestLabel "rTest170" rTest170,
     TestLabel "rTest171" rTest171,
     TestLabel "rTest173" rTest173,
@@ -313,21 +281,20 @@ rTest14 = TestCase (assertBool "[,]" (isLeft(runParser "[,]")))
 rTest15 = TestCase (assertBool "[-]" (isLeft(runParser "[-]")))
 rTest16 = TestCase (assertBool "[   , \"\"]" (isLeft(runParser "[   , \"\"]")))
 rTest17 = TestCase (assertBool "[\"a\"," (isLeft(runParser "[\"a\",")))
-rTest18 = TestCase (assertBool "4" (isLeft(runParser "4")))
 rTest19 = TestCase (assertBool ",1," (isLeft(runParser ",1,")))
 rTest20 = TestCase (assertBool "[1,]" (isLeft(runParser "[1,]")))
 rTest21 = TestCase (assertBool "[1,,]" (isLeft(runParser "[1,,]")))
-rTest22 = TestCase (assertBool "[1 true]" (isLeft(runParser "[1 true]")))
+rTest22 = TestCase (assertBool "" (isLeft(runParser "")))
 rTest23 = TestCase (assertBool "[*]" (isLeft(runParser "[*]")))
 rTest24 = TestCase (assertBool "[\"\"" (isLeft(runParser "[\"\"")))
 rTest25 = TestCase (assertBool "[1," (isLeft(runParser "[1,")))
 rTest26 = TestCase (assertBool "[1," (isLeft(runParser "[1,")))
-rTest27 = TestCase (assertBool "1" (isLeft(runParser "1")))
 rTest28 = TestCase (assertBool ",1" (isLeft(runParser ",1")))
 rTest29 = TestCase (assertBool "[{}" (isLeft(runParser "[{}")))
-rTest30 = TestCase (assertBool "[fals]" (isLeft(runParser "[fals]")))
+rTest30 = TestCase (assertBool "{" (isLeft(runParser "{")))
 rTest31 = TestCase (assertBool "[nul]" (isLeft(runParser "[nul]")))
-rTest32 = TestCase (assertBool "[tru]" (isLeft(runParser "[tru]")))
+rTest32 = TestCase (assertBool "\"a\": \"b\"" (isLeft(runParser "\"a\": \"b\"")))
+rTest33 = TestCase (assertBool "}" (isLeft(runParser "}")))
 rTest34 = TestCase (assertBool "[++1234]" (isLeft(runParser "[++1234]")))
 rTest35 = TestCase (assertBool "[+1]" (isLeft(runParser "[+1]")))
 rTest63 = TestCase (assertBool "[1+2]" (isLeft(runParser "[1+2]")))
@@ -351,14 +318,12 @@ rTest80 = TestCase (assertBool "[1eå]" (isLeft(runParser "[1eå]")))
 rTest81 = TestCase (assertBool "[1.]" (isLeft(runParser "[1.]")))
 rTest82 = TestCase (assertBool "[.123]" (isLeft(runParser "[.123]")))
 rTest85 = TestCase (assertBool "[012]" (isLeft(runParser "[012]")))
-rTest86 = TestCase (assertBool "[\"x\", truth]" (isLeft(runParser "[\"x\", truth]")))
 rTest87 = TestCase (assertBool "{[: \"x\"}" (isLeft(runParser "{[: \"x\"}")))
 rTest88 = TestCase (assertBool "" (isLeft(runParser "")))
 rTest89 = TestCase (assertBool "{\"x\", null}" (isLeft(runParser "{\"x\", null}")))
 rTest90 = TestCase (assertBool "{\"x\"::\"b\"}" (isLeft(runParser "{\"x\"::\"b\"}")))
 rTest92 = TestCase (assertBool "{\"a\":\"a\" 123}" (isLeft(runParser "{\"a\":\"a\" 123}")))
 rTest93 = TestCase (assertBool "{key: 'value'}" (isLeft(runParser "{key: 'value'}")))
-rTest94 = TestCase (assertBool "{\"¹\":\"0\",}" (isLeft(runParser "{\"¹\":\"0\",}")))
 rTest95 = TestCase (assertBool "{\"a\" b}" (isLeft(runParser "{\"a\" b}")))
 rTest96 = TestCase (assertBool "{:\"b\"}" (isLeft(runParser "{:\"b\"}")))
 rTest97 = TestCase (assertBool "{\"a\" \"b\"}" (isLeft(runParser "{\"a\" \"b\"}")))
@@ -395,9 +360,7 @@ rTest151 = TestCase (assertBool "[1]x" (isLeft(runParser "[1]x")))
 rTest152 = TestCase (assertBool "[1]]" (isLeft(runParser "[1]]")))
 rTest153 = TestCase (assertBool "[\"asd]" (isLeft(runParser "[\"asd]")))
 rTest154 = TestCase (assertBool "aÃ¥" (isLeft(runParser "aÃ¥")))
-rTest155 = TestCase (assertBool "[True]" (isLeft(runParser "[True]")))
 rTest156 = TestCase (assertBool "1]" (isLeft(runParser "1]")))
-rTest157 = TestCase (assertBool "{\"x\": true," (isLeft(runParser "{\"x\": true,")))
 rTest158 = TestCase (assertBool "[][]" (isLeft(runParser "[][]")))
 rTest159 = TestCase (assertBool "]" (isLeft(runParser "]")))
 rTest160 = TestCase (assertBool "ï»{}" (isLeft(runParser "ï»{}")))
@@ -408,7 +371,6 @@ rTest165 = TestCase (assertBool "2@" (isLeft(runParser "2@")))
 rTest166 = TestCase (assertBool "{}}" (isLeft(runParser "{}}")))
 rTest167 = TestCase (assertBool "{\"\":" (isLeft(runParser "{\"\":")))
 rTest168 = TestCase (assertBool "{\"a\":/*comment*/\"b\"}" (isLeft(runParser "{\"a\":/*comment*/\"b\"}")))
-rTest169 = TestCase (assertBool "{\"a\": true} \"x\"" (isLeft(runParser "{\"a\": true} \"x\"")))
 rTest170 = TestCase (assertBool "['" (isLeft(runParser "['")))
 rTest171 = TestCase (assertBool "[," (isLeft(runParser "[,")))
 rTest173 = TestCase (assertBool "" (isLeft(runParser "")))
@@ -425,9 +387,9 @@ rTest184 = TestCase (assertBool "é" (isLeft(runParser "é")))
 rTest185 = TestCase (assertBool "*" (isLeft(runParser "*")))
 rTest186 = TestCase (assertBool "{\"a\":\"b\"}#{}" (isLeft(runParser "{\"a\":\"b\"}#{}")))
 rTest188 = TestCase (assertBool "[1" (isLeft(runParser "[1")))
-rTest189 = TestCase (assertBool "[ false, nul" (isLeft(runParser "[ false, nul")))
-rTest190 = TestCase (assertBool "[ true, fals" (isLeft(runParser "[ true, fals")))
-rTest191 = TestCase (assertBool "[ false, tru" (isLeft(runParser "[ false, tru")))
+rTest189 = TestCase (assertBool "[ nul" (isLeft(runParser "[ nul")))
+rTest190 = TestCase (assertBool "[1" (isLeft(runParser "[1")))
+rTest191 = TestCase (assertBool "]" (isLeft(runParser "]")))
 rTest192 = TestCase (assertBool "{\"asd\":\"asd\"" (isLeft(runParser "{\"asd\":\"asd\"")))
 rTest193 = TestCase (assertBool "Ã¥" (isLeft(runParser "Ã¥")))
 
