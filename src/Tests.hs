@@ -1,5 +1,5 @@
 module Tests where
-import Parser3
+import Parser2
 import MapElements (createMapElements, MapElements (MapElements))
 import MapRender
 import Data.Either

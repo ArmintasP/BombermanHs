@@ -1,5 +1,5 @@
 module GameParser where
-import Parser3 (JsonLike(..))
+import Parser2 (JsonLike(..))
 import Data.Either
 import Data.List (intercalate, delete)
 

@@ -8,7 +8,7 @@ import MapElements
       createMapElements,
       newlineSym,
       defaultSym, getBombs, bricksSym, ghostsSym )
-import Parser3 ( JsonLike(..), runParser )
+import Parser2 ( JsonLike(..), runParser )
 
 data InitData = InitData
   { gameWidth :: Int,
