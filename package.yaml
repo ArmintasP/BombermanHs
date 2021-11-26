@@ -27,39 +27,6 @@ library:
   source-dirs: src
 
 executables:
-  bomberman-client-1:
-    main:                Main.hs
-    source-dirs:         app1
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - bomberman-client
-    - wreq
-    - aeson
-    - lens
-    - ansi-terminal
-    - string-conversions
-    when:
-    - condition: false
-      other-modules: Paths_bomberman_client
-
-  bomberman-client-2:
-    main:                Main.hs
-    source-dirs:         app2
-    ghc-options:
-    - -threaded
-    - -rtsopts
-    - -with-rtsopts=-N
-    dependencies:
-    - bomberman-client
-    - wreq
-    - aeson
-    - lens
-    - ansi-terminal
-    - string-conversions
-
   bomberman-client:
     main:                Main.hs
     source-dirs:         app3
