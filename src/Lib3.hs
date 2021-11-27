@@ -65,6 +65,7 @@ data NewGame = NewGame GameId InitData
 
 class ContainsInitData a where
   gameIData :: a -> InitData
+  
 instance ContainsGameId NewGame where
   gameId (NewGame gid _) = gid
 
@@ -75,7 +76,7 @@ instance FromJsonLike NewGame where
   fromJsonLike o@(JsonLikeObject m) = do uuid <- getwLookup "uuid" getJsonString m
                                          height <-getwLookup "height" getJsonInteger m
                                          width <-getwLookup "width" getJsonInteger m
-                                         let idata = InitData height width
+                                         let idata = InitData width height
                                          E.Right (NewGame uuid idata)
   fromJsonLike v = E.Left $ "Unexpected value: " ++ show v
 
@@ -105,6 +106,7 @@ data Command
   | FetchBombStatus
   | FetchBombSurrounding
   deriving (Show)
+
 instance ToJsonLike Command where
   toJsonLike (MoveBomberman dir) = E.Right $ JsonLikeObject [("name", JsonLikeString $ getConst (MoveBomberman dir)), ("direction", JsonLikeString (show dir))]
   toJsonLike c = E.Right $ JsonLikeObject [("name", JsonLikeString $ getConst c)]
@@ -128,11 +130,9 @@ instance ToJsonLike Commands where
                                                               let cs = [("additional", xs')]
                                                               return $ JsonLikeObject (c ++ cs)
 
-
+-- Note: if using FromJsonLike, always use it with ::String, as there is no need (and logical means) to convert a JsonLike to Commands.
 instance FromJsonLike Commands where
   fromJsonLike js = E.Left (show js)
-
-
 
 newtype CommandsResponse = CommandsResponse String
   deriving (Show)
