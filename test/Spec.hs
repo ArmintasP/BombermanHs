@@ -3,25 +3,28 @@ module Main where
 import Test.HUnit
 import Data.Either
 import Parser3
+import MapElements (MapElements (MapElements), createMapElements)
 
 main :: IO ()
 main = do
-  putStrLn "\nLoading acceptance tests..."
-  aResults <- runTestTT acceptanceTests
-  putStrLn "\n**************************\n"
-  putStrLn "Loading rejection tests..."
-  rResults <- runTestTT rejectionTests
-  putStrLn "\n**************************\n"
+  aJResults <- loadTests acceptanceJsonTests "json acceptance"
+  rJResults <- loadTests rejectionJsonTests "json rejection"
+  gResults <- loadTests gameTests "game"
   let
-    totalFailures = failures aResults + failures rResults
-    totalErrors = errors aResults + errors rResults
-  if (totalErrors + totalFailures == 0)
+    totalFailures = sum $ map failures [aJResults, rJResults, gResults]
+    totalErrors = sum $ map errors [aJResults, rJResults, gResults]
+  if totalErrors + totalFailures == 0
     then
-      putStrLn ("Tests have been completed succesfully.\n")
+      putStrLn "Tests have been completed succesfully.\n"
     else
       putStrLn ("Total number of tests failed: " ++ show totalFailures ++ ".\n")
 
-acceptanceTests = TestList 
+loadTests :: Test -> String -> IO Counts
+loadTests tests name = do
+  let bar = "\n**************************\n"
+  putStrLn ("\nLoading " ++ name ++ " tests..." ++ bar)
+  runTestTT tests
+acceptanceJsonTests = TestList
   [
     TestLabel "aTest1" aTest1,
     TestLabel "aTest2" aTest2,
@@ -155,7 +158,7 @@ aTest83 = TestCase (assertBool "[\"a\"]" (isRight(runParser "[\"a\"]")))
 aTest86 = TestCase (assertBool " [] " (isRight(runParser " [] ")))
 
 
-rejectionTests = TestList
+rejectionJsonTests = TestList
   [
     TestLabel "rTest1" rTest1,
     TestLabel "rTest2" rTest2,
@@ -420,3 +423,105 @@ rTest191 = TestCase (assertBool "]" (isLeft(runParser "]")))
 rTest192 = TestCase (assertBool "{\"asd\":\"asd\"" (isLeft(runParser "{\"asd\":\"asd\"")))
 rTest193 = TestCase (assertBool "Ã¥" (isLeft(runParser "Ã¥")))
 
+
+instance Eq MapElements where
+  (MapElements x0 x1 x2 x3 x4 x5 x6 x7) == (MapElements y0 y1 y2 y3 y4 y5 y6 y7) =
+    and [x0 == y0, x1 == y1, x2 == y2, x3 == y3, x4 == y4, x5 == y5, x6 == x6, x7 == y7]
+
+
+gameTests = TestList
+  [
+    TestLabel "gTest1" gTest1,
+    TestLabel "gTest2" gTest2,
+    TestLabel "gTest3" gTest3,
+    TestLabel "gTest4" gTest4,
+    TestLabel "gTest5" gTest5,
+    TestLabel "gTest6" gTest6,
+    TestLabel "gTest7" gTest7,
+    TestLabel "gTest8" gTest8,
+    TestLabel "gTest9" gTest9,
+    TestLabel "gTest10" gTest10,
+    TestLabel "gTest11" gTest11,        
+    TestLabel "gTest12" gTest12,
+    TestLabel "gTest13" gTest13,
+    TestLabel "gTest14" gTest14
+  ]
+
+gTest1string = "{\"bomb\":null,\"surrounding\":null,\"bomb_surrounding\":null}"
+gTest1 = TestCase (assertEqual gTest1string
+  (Right (MapElements [] [] [] [] [] [] [] []))
+  (runGameParser gTest1string))
+
+gTest2string = "{\"bomb_surrounding\":null,\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}}}}"
+gTest2 = TestCase (assertEqual gTest2string
+  (Right (MapElements [] [[1,1]] [] [] [] [] [] []))
+  (runGameParser gTest2string))
+
+gTest3string = "{\"bomb_surrounding\":null,\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}},\
+            \\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}}}}"
+gTest3 = TestCase (assertEqual gTest3string
+  (Right (MapElements [] [[0,4]] [[8,7], [8,3]] [] [] [] [] []))
+  (runGameParser gTest3string))
+
+gTest4string  = "{\"bomb_surrounding\":null,\"bomb\":null,\"surrounding\":{\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}},\
+            \\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}}}}"
+gTest4 = TestCase (assertEqual gTest4string
+  (Right (MapElements [] [[0,4]] [[8,7], [8,3]] [] [] [] [] []))
+  (runGameParser gTest4string))
+
+gTest5string = "{\"bomb_surrounding\":null,\"surrounding\":{\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}},\
+            \\"bombermans\":{\"head\":[0,4],\"tail\":{\"head\":null,\"tail\":null}}}, \"bomb\":[5, 5]}"
+gTest5 = TestCase (assertEqual gTest5string
+  (Right (MapElements [[5,5]] [[0,4]] [[8,7], [8,3]] [] [] [] [] []))
+  (runGameParser gTest5string))
+
+gTest6string = "\"random\""
+gTest6 = TestCase (assertEqual gTest6string
+  (Left "Error: there should be 3 objects with keys: bomb, surrounding, bomb_surrounding")
+  (runGameParser gTest6string))
+
+gTest7string = "{\"bomb\":null}"
+gTest7 = TestCase (assertEqual gTest7string
+  (Left "Error: there should be 3 objects with keys: bomb, surrounding, bomb_surrounding")
+  (runGameParser gTest7string))
+
+
+gTest8string = "{\"surrounding\":null}"
+gTest8 = TestCase (assertEqual gTest8string
+  (Left "Error: there should be 3 objects with keys: bomb, surrounding, bomb_surrounding")
+  (runGameParser gTest8string))
+
+gTest9string = "{\"bomb\":null,\"bomb_surrounding\":null,\"surrounding\":[]}"
+gTest9 = TestCase (assertEqual gTest9string
+  (Left "Error: invalid type after key \"surrounding\".")
+  (runGameParser gTest9string))
+
+gTest10string = "{\"bomb\":[1,2,3],\"surrounding\":{}, \"bomb_surrounding\":null}"
+gTest10 = TestCase (assertEqual gTest10string
+  (Left "Error: list with key `bomb` should contain only two coordinates that are numbers.")
+  (runGameParser gTest10string))
+
+gTest11string = "{\"bomb\":[1],\"surrounding\":null, \"bomb_surrounding\":null}"
+gTest11 = TestCase (assertEqual gTest11string
+  (Left "Error: list with key `bomb` should contain only two coordinates that are numbers.")
+  (runGameParser gTest11string))
+
+gTest12string = "{\"bomb\":[1,2,3],\"surrounding\":null, \"bomb_surrounding\":null}"
+gTest12 = TestCase (assertEqual gTest12string
+  (Left "Error: list with key `bomb` should contain only two coordinates that are numbers.")
+  (runGameParser gTest12string))
+
+gTest13string = "{\"bomb_surrounding\":null, \"bomb\":null,\"surrounding\":{\"bombermans\":{\"BADHEADDDDDDDDD\":[0,4],\"tail\":{\"head\":null,\"tail\":null}},\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":null,\"tail\":null}}}}}"
+gTest13 = TestCase (assertEqual gTest13string
+  (Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object (or null) as a value.")
+  (runGameParser gTest13string))
+
+gTest14string = "{\"bomb_surrounding\":null, \"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[0,4, 5],\"tail\":{\"head\":null,\"tail\":null}}}}"
+gTest14 = TestCase (assertEqual gTest14string
+  (Left "Error: \"head\" must have 2 and only 2 elements that are positive integers that represent coordinates of an object.")
+  (runGameParser gTest14string))
+
+
+runGameParser str = do
+  json <- runParser str
+  createMapElements json
