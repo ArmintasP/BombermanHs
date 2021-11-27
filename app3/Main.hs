@@ -1,5 +1,6 @@
 module Main where
-
+import Control.Concurrent.MVar
+import Control.Monad
 import Control.Exception (bracket)
 import Control.Lens ((^.))
 import qualified Data.ByteString as B
@@ -59,8 +60,7 @@ e = E.either error id
 
 main :: IO ()
 main = do
-  _ <- ANSI.clearScreen
-  threadDelay 50000
+  ANSI.clearScreen
   hSetBuffering stdin NoBuffering
   hSetBuffering stderr NoBuffering
   hSetBuffering stdout NoBuffering
@@ -79,10 +79,11 @@ main = do
 launchThread :: State -> Sess.Session -> GameId -> IO ()
 launchThread state sess uuid = do
   forkIO (bgUpdateMap state sess uuid)
-  play state sess uuid
+  catchInput sess uuid  -- Main thread will be responsible for 'catching user's commands'.
 
 bgUpdateMap :: State -> Sess.Session -> GameId -> IO b
 bgUpdateMap state sess uuid = do
+  threadDelay 100000
   renderGame state
   gameData <- postCommands uuid sess fetchEverything :: IO CommandsResponse
   playLoop gameData sess uuid (MapRender.update state) bgUpdateMap
@@ -95,24 +96,24 @@ playLoop gameData sess uuid stateFunction loopfun = case toJsonLike gameData of
      loopfun state sess uuid
 
 
-play :: State -> Sess.Session -> GameId -> IO ()
-play state sess uuid = do c <- getChar
-                          let action = case c of
-                               'w' -> Commands (MoveBomberman Up) (Just fetchEverything)
-                               's' -> Commands (MoveBomberman Down) (Just fetchEverything)
-                               'a' -> Commands (MoveBomberman Lib3.Left) (Just fetchEverything)
-                               'd' -> Commands (MoveBomberman Lib3.Right) (Just fetchEverything)
-                               'b' -> Commands PlantBomb (Just fetchEverything)
-                               _ -> fetchEverything
-                          gameData <- postCommands uuid sess action :: IO CommandsResponse
-                          playLoop gameData sess uuid (MapRender.update state) play
+catchInput :: Sess.Session -> GameId -> IO ()
+catchInput sess uuid =  do c <- getChar
+                           let action = case c of
+                                 'w' -> Commands (MoveBomberman Up) Nothing
+                                 's' -> Commands (MoveBomberman Down) Nothing
+                                 'a' -> Commands (MoveBomberman Lib3.Left) Nothing
+                                 'd' -> Commands (MoveBomberman Lib3.Right) Nothing
+                                 'b' -> Commands PlantBomb Nothing
+                                 _ -> fetchEverything
+                           gameData <- postCommands uuid sess action :: IO CommandsResponse
+                           catchInput sess uuid
 
 renderGame :: MapRender.State -> IO ()
 renderGame state = do 
-                      threadDelay 50000
-                      _ <- ANSI.setCursorPosition 0 0
-                      let map = MapRender.render state
-                      putStr map
+  let map = MapRender.render state
+  ANSI.setCursorPosition 0 0
+  putStrLn map
+
 
 fetchEverything :: Commands
 fetchEverything = Commands FetchSurrounding (Just (Commands FetchBombStatus (Just (Commands FetchBombSurrounding Nothing))))
