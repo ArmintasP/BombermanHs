@@ -73,6 +73,7 @@ handleInitialObjects :: [String] -> [(String, JsonLike)] -> Either String [(Stri
 handleInitialObjects ["bomb"] [(k, js)] = Right [(k, js)]
 handleInitialObjects [key] [(k, JsonLikeObject js)] = Right $ appendKey js key
 handleInitialObjects [key] [(k, JsonLikeNull)] = Right []
+handleInitialObjects [key] _ = Left $ "Error: invalid type after key \"" ++ key ++ "\"."
 handleInitialObjects keys ((k, js):xs)
   | k `elem` keys = (++) <$> handleInitialObjects [k] [(k, js)] <*> handleInitialObjects (delete k keys) xs
   | otherwise = Left initialObjectsErrorMessage
