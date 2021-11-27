@@ -21,20 +21,17 @@ jsonExtract [(key, JsonLikeList xs)] = do
     res <- getListElements xs key
     return [(key, res)]
 jsonExtract [(key, JsonLikeNull)] = Right [(key, [])]
-jsonExtract [(key, JsonLikeObject xs)]
-  | isLeft coordinates = Left $ head (lefts [coordinates])
-  | otherwise = Right [(key, concat coordinates)]
-  where coordinates = constructList xs
+jsonExtract [(key, JsonLikeObject xs)] = do
+  coordinates <- constructList xs
+  return [(key, coordinates)]
 jsonExtract [(key, _)] = Left ("Error: \"" ++ key ++ "\" should have an object (a linked list) as a value, not a list, string or integer.")
-jsonExtract (x:xs)
-  | hasLeft = Left (intercalate "\n" (lefts [pair, pairs]))
-  | otherwise = Right (concat (rights [pair, pairs]))
-  where pair = jsonExtract [x]
-        pairs = jsonExtract xs
-        hasLeft = isLeft pair || isLeft pairs
+jsonExtract (x:xs) = do
+  pair <- jsonExtract [x]
+  pairs <- jsonExtract xs
+  return $ pair ++ pairs
 
 getListElements :: [JsonLike] -> String -> Either String [[Int]]
-getListElements [JsonLikeList [JsonLikeInteger x, JsonLikeInteger x']] key = 
+getListElements [JsonLikeList [JsonLikeInteger x, JsonLikeInteger x']] key =
     if signum x >= 0 && signum x' >= 0 then Right [[fromInteger x, fromInteger x']]
     else Left $ "Error: bomb coordinates should be positive in llist with key: " ++ key
 getListElements (x:y:xs) key = (++) <$> getListElements [x] key <*> getListElements (y:xs) key
@@ -44,12 +41,10 @@ getListElements _ key = Left ("Error: list with key `" ++ key ++ "` should conta
 -- | Constructs a list (that is formed with 'head' and 'tail') of coordinates.
 constructList :: [(String, JsonLike)] -> Either String [[Int]]
 constructList [("head", JsonLikeNull) , ("tail", JsonLikeNull)] = Right []
-constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)]
-  | hasLeft = Left (intercalate "\n" (lefts [listH, listT]))
-  | otherwise = Right (concat (rights [listH, listT]))
-  where listH = constructListHead jval
-        listT = constructList obj
-        hasLeft = isLeft listH || isLeft listT
+constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)] = do
+  listH <- constructListHead jval
+  listT <- constructList obj
+  return $ listH ++ listT
 constructList _  = Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object (or null) as a value."
 
 -- | Takes values from a linked list's head.
@@ -59,13 +54,10 @@ constructListHead [js, js'] = case (js, js') of
   (JsonLikeInteger x, JsonLikeInteger x') -> if signum x >= 0 && signum x' >= 0 then Right [[fromInteger x, fromInteger x']]
     else Left "Error: \"head\" has a list with negative integer(s)."
   (_, _) -> Left "Error: \"head\" has a list containing other types than positive integers."
-
 constructListHead js = Left "Error: \"head\" must have 2 and only 2 elements that are positive integers that represent coordinates of an object."
 
 -- | Checks if passed json has "surrounding" and "bomb" field. They are crucial for our current program.
 jsonGetMapObjects :: JsonLike -> Either String [(String, JsonLike)]
---jsonGetMapObjects (JsonLikeObject [("bomb", js), ("surrounding", js')]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
---jsonGetMapObjects (JsonLikeObject [("surrounding", js'), ("bomb", js)]) = handleBombAndSurroundings ("bomb", js) ("surrounding", js')
 jsonGetMapObjects (JsonLikeObject [o1, o2, o3]) = handleInitialObjects initialObjects [o1, o2, o3]
 jsonGetMapObjects _ = Left initialObjectsErrorMessage
 
@@ -86,7 +78,7 @@ handleInitialObjects keys ((k, js):xs)
   | otherwise = Left initialObjectsErrorMessage
 handleInitialObjects _ _ = Left initialObjectsErrorMessage
 
-appendKey :: [(String, JsonLike)] -> String -> [(String, JsonLike)] 
+appendKey :: [(String, JsonLike)] -> String -> [(String, JsonLike)]
 appendKey [] _ = []
 appendKey [(str, js)] key = [(key ++ "_" ++ str, js)]
 appendKey (x:xs) key = appendKey [x] key ++ appendKey xs key
@@ -97,3 +89,6 @@ initialObjects = ["bomb", "surrounding", "bomb_surrounding"]
 
 initialObjectsErrorMessage :: String
 initialObjectsErrorMessage = "Error: there should be " ++ show (length initialObjects) ++ " objects with keys: " ++ intercalate ", " initialObjects
+
+singleton :: a -> [a]
+singleton a = [a]
