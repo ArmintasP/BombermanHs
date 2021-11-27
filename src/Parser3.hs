@@ -187,18 +187,19 @@ parseJsonLikeNull (input, index) =
 -- Returns: Either String ([JsonLike], (String, Integer))
 --    where [JsonLike] - a list of any JsonLike values, (String, Integer) - a tuple of: remainder of unparsed string and index of last parsed symbol
 parseJsonLikeListValues :: (String, Integer) -> Either String ([JsonLike], (String, Integer))
-parseJsonLikeListValues([], index) = Left $ "Error after index " ++ show index ++ ": Unexpected end of list"
-parseJsonLikeListValues(']':xs, index) = Right ([], stripStart (']':xs, index))
+parseJsonLikeListValues ([], index) = Left $ "Error after index " ++ show index ++ ": Unexpected end of list"
+parseJsonLikeListValues (']':xs, index) = Right ([], stripStart (']':xs, index))
 parseJsonLikeListValues (input, index) = do
-  (parsed, (xs, index)) <- parseJsonLike (stripStart (input, index))
-  let nextSym  | xs == [] = Left $ "Error after index " ++ show index ++ ": Unexpected end of list"
-               | head xs == ',' = do 
-                  (parsed, (xs, index)) <- parseJsonLikeListValues (stripStart (tail xs, index + 1))
-                  if null parsed && head xs == ']'
-                    then Left $ "Error after index " ++ show index ++ ": No value found after comma in list"
-                    else return (parsed, (xs, index))
-              | otherwise = return ([parsed], (xs, index))
-  nextSym
+  (parsed2, (input2, index2)) <- parseJsonLike (stripStart (input, index))
+  if null input2
+    then Left $ "Error after index " ++ show index2 ++ ": Unexpected end of list"
+  else if head input2 == ','
+    then do
+      (parsed3, (input3, index3)) <- parseJsonLikeListValues (stripStart (tail input2, index2 + 1))
+      if null parsed3 && head input3 == ']'
+        then Left $ "Error after index " ++ show (index3 - 1) ++ ": No value found after comma in list"
+      else return (parsed2:parsed3, (input3, index3))
+  else return ([parsed2], (input2, index2))
 
 -- Parses any array which starts with '[' and ends with ']', like "[1, 2 , null,\"string\",{...},[...]]"
 -- Throws error if array opening bracket '[' or closing bracket ']' is missing
