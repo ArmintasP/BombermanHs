@@ -25,7 +25,7 @@ to run tests.
 ![Bomberman demo3](preview3.gif)
 - Received JSON data is parsed using our own  `/src/Parser3.hs` functions.
 - Colored rendering is done in `/src/MapRender.hs`.
-- Testing is done in `/src/Spec.hs`.
+- Testing is done in `/test/Spec.hs`.
 
 ##### version 2
 ![Bomberman demo2](preview2.gif)
@@ -202,5 +202,5 @@ and the other which renders the game every `renderingInterval`, which is set to 
 ![Testing demo](testing.gif)
 
 Our parser is tested with various json strings by using the HUnit framework.
-One part of the tests are dedicated to checking the parser. Acceptance tests (`aTests`) test whether the given value of `runParser` is Right and rejection tests (`rTests`) test if the given value of `runParser` is Left.
-The other part of the tests (`gTests`) are meant to test the parser determining whether the json suits the game logic. Accordingly checking if `runGameParser` throws error if not suitable string is passed, and does not throw error otherwise.
+One part of the tests are dedicated to checking the parser. Acceptance tests (`acceptanceJsonTests`) test whether the given value of `runParser` is Right and rejection tests (`rejectionJsonTests`) test if the given value of `runParser` is Left.
+The other part of the tests (`gameTests`) are meant to test the parser determining whether the json suits the game logic. Accordingly checking if `runGameParser` throws error if not suitable string is passed, and does not throw error otherwise.
