@@ -85,8 +85,8 @@ renderingInterval = 100000
 
 bgUpdateMap :: State -> Sess.Session -> GameId -> IO b
 bgUpdateMap state sess uuid = do
-  threadDelay renderingInterval
   renderGame state
+  threadDelay renderingInterval
   gameData <- postCommands uuid sess fetchEverything :: IO CommandsResponse
   playLoop gameData sess uuid (MapRender.update state) bgUpdateMap
 
