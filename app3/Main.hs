@@ -81,9 +81,11 @@ launchThread state sess uuid = do
   forkIO (bgUpdateMap state sess uuid)
   catchInput sess uuid  -- Main thread will be responsible for 'catching user's commands'.
 
+renderingInterval = 100000
+
 bgUpdateMap :: State -> Sess.Session -> GameId -> IO b
 bgUpdateMap state sess uuid = do
-  threadDelay 100000
+  threadDelay renderingInterval
   renderGame state
   gameData <- postCommands uuid sess fetchEverything :: IO CommandsResponse
   playLoop gameData sess uuid (MapRender.update state) bgUpdateMap

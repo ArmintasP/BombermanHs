@@ -7,19 +7,26 @@ Contents
 - [How it's Done?](#how-its-done)
   - [Parsing](#parsing)
   - [Rendering](#rendering)
+  - [Threads](#threads)
   - [Testing](#testing)
 <hr>
 
 
 ## Usage
 Open terminal in project's directory & write
-`stack run bomberman-client-1`
-to play the first version,
-`stack run bomberman-client-2`
-to play the second version.
+`stack run`
+to play bomberman or
+`stack test`
+to run tests.
 <hr>
 
 ## Current state
+##### version 3
+![Bomberman demo3](preview3.gif)
+- Received JSON data is parsed using our own  `/src/Parser3.hs` functions.
+- Colored rendering is done in `/src/MapRender.hs`.
+- Testing is done in `/src/Spec.hs`.
+
 ##### version 2
 ![Bomberman demo2](preview2.gif)
 - Received JSON data is parsed using our own  `/src/Parser2.hs` functions.
@@ -87,24 +94,31 @@ If one of the points is encountered, we notify about any errors:
 
 1. We Extract values from values of "bomb" and "surrounding". We parse linked list into `[[Int]]`.
 ```haskell
-jsonExtract :: [(String, JsonLike)] -> Either String [(String, [[Int]])]
+jsonExtract [("bomb", js@(JsonLikeList [JsonLikeInteger x, JsonLikeInteger x']))] = do
+    res <- getListElements [js] "bomb"
+    return [("bomb", res)]
+jsonExtract [(key, JsonLikeList xs)] = do
+    res <- getListElements xs key
+    return [(key, res)]
 jsonExtract [(key, JsonLikeNull)] = Right [(key, [])]
-jsonExtract [(key, JsonLikeObject xs)]
-  | isLeft coordinates = Left $ head (lefts [coordinates])
-  | otherwise = Right [(key, concat coordinates)]
-  where coordinates = constructList xs
+jsonExtract [(key, JsonLikeObject xs)] = do
+  coordinates <- constructList xs
+  return [(key, coordinates)]
+jsonExtract [(key, _)] = Left ("Error: \"" ++ key ++ "\" should have an object (a linked list) as a value, not a list, string or integer.")
+jsonExtract (x:xs) = do
+  pair <- jsonExtract [x]
+  pairs <- jsonExtract xs
+  return $ pair ++ pairs
 ```
 
 2. We construct a list of coordinates.
 ```haskell
 constructList :: [(String, JsonLike)] -> Either String [[Int]]
 constructList [("head", JsonLikeNull) , ("tail", JsonLikeNull)] = Right []
-constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)]
-  | hasLeft = Left (intercalate "\n" (lefts [listH, listT]))
-  | otherwise = Right (concat (rights [listH, listT]))
-  where listH = constructListHead jval
-        listT = constructList obj
-        hasLeft = isLeft listH || isLeft listT
+constructList [("head", JsonLikeList jval), ("tail", JsonLikeObject obj)] = do
+  listH <- constructListHead jval
+  listT <- constructList obj
+  return $ listH ++ listT
 constructList _  = Left "Error: linked list should have \"head\" with a list (or null, if empty) as a value, and \"tail\" with an object (or null) as a value."
 ```
 
@@ -117,14 +131,16 @@ data MapElements = MapElements {
                 bricks :: [[Int]],
                 gates :: [[Int]],
                 ghosts :: [[Int]],
-                wall :: [[Int]]}
+                wall :: [[Int]],
+                bGhosts :: [[Int]],
+                bBricks :: [[Int]]}
                 deriving (Show, Read)
 ```
 
 ### Rendering
 1. `init`, responsible for initializing the game, calls generateEmptyMap which populates an array with default symbols.
 ```haskell
-generateEmptyMap :: InitData -> [(Int, String)]
+generateEmptyMap :: InitData -> Map
 generateEmptyMap (InitData w h) = [(entryNumber, defaultSym) | entryNumber <- [0 .. (w * h)]]
 ```
 
@@ -152,7 +168,7 @@ updateMap (State json iData prevMap _ lBomb _) =
         newMap = addToMap entries mapAfterExplosion
     in State json iData newMap dynamicElements newBombs""
   else
-    State json iData [] [] [] (head (lefts [mapElements])) 
+    State json iData [] [] [] (head (lefts [mapElements]))
   where
       mapElements = createMapElements json
 ```
@@ -168,9 +184,23 @@ render (State json iData sMap dMap lBomb "") = mapToString
 render (State _ _ _ _ _ errorMessage) = errorMessage
 ```
 
+### Threads
+
+Threads are used to check if the bomb is exploded.
+We have two threads.
+The Main thread which is responsible for 'catching user's commands'
+```haskell
+launchThread :: State -> Sess.Session -> GameId -> IO ()
+launchThread state sess uuid = do
+  forkIO (bgUpdateMap state sess uuid)
+  catchInput sess uuid
+```
+and the other which renders the game every `renderingInterval`, which is set to 100000 microseconds right now.
+
+
 ### Testing
 ![Testing demo](testing.gif)
 
-Our parser is tested with variuos json strings.
-One part of the tests is dedicated to checking the parser, whether it succeeds with correct json grammar in `aPass` and whether it throws error messages with corrupted jsons in `aFail`.
-The other part of the tests is meant to test the parser determining whether the json suits the game logic. Accordingly `gAPass` and `gAFail` tests are used for that.
+Our parser is tested with various json strings by using the HUnit framework.
+One part of the tests are dedicated to checking the parser. Acceptance tests (`aTests`) test whether the given value of `runParser` is Right and rejection tests (`rTests`) test if the given value of `runParser` is Left.
+The other part of the tests (`gTests`) are meant to test the parser determining whether the json suits the game logic. Accordingly checking if `runGameParser` throws error if not suitable string is passed, and does not throw error otherwise.
