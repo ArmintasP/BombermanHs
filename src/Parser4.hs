@@ -33,12 +33,11 @@ type Parser a = ExceptT ParserError (State (String, Integer)) a
 testJsonString :: String
 testJsonString = "{\"bomb\":null,\"surrounding\":{\"bombermans\":{\"head\":[1,1],\"tail\":{\"head\":null,\"tail\":null}},\"bricks\":{\"head\":[8,7],\"tail\":{\"head\":[8,3],\"tail\":{\"head\":[8,1],\"tail\":{\"head\":[6,7],\"tail\":{\"head\":[6,5],\"tail\":{\"head\":[5,8],\"tail\":{\"head\":[5,4],\"tail\":{\"head\":[3,6],\"tail\":{\"head\":[3,4],\"tail\":{\"head\":[2,3],\"tail\":{\"head\":[2,1],\"tail\":{\"head\":[1,8],\"tail\":{\"head\":[1,7],\"tail\":{\"head\":[1,6],\"tail\":{\"head\":null,\"tail\":null}}}}}}}}}}}}}}},\"gates\":{\"head\":null,\"tail\":null},\"ghosts\":{\"head\":null,\"tail\":null},\"wall\":{\"head\":[8,8],\"tail\":{\"head\":[8,6],\"tail\":{\"head\":[8,4],\"tail\":{\"head\":[8,2],\"tail\":{\"head\":[8,0],\"tail\":{\"head\":[7,0],\"tail\":{\"head\":[6,8],\"tail\":{\"head\":[6,6],\"tail\":{\"head\":[6,4],\"tail\":{\"head\":[6,2],\"tail\":{\"head\":[6,0],\"tail\":{\"head\":[5,0],\"tail\":{\"head\":[4,8],\"tail\":{\"head\":[4,6],\"tail\":{\"head\":[4,4],\"tail\":{\"head\":[4,2],\"tail\":{\"head\":[4,0],\"tail\":{\"head\":[3,0],\"tail\":{\"head\":[2,8],\"tail\":{\"head\":[2,6],\"tail\":{\"head\":[2,4],\"tail\":{\"head\":[2,2],\"tail\":{\"head\":[2,0],\"tail\":{\"head\":[1,0],\"tail\":{\"head\":[0,8],\"tail\":{\"head\":[0,7],\"tail\":{\"head\":[0,6],\"tail\":{\"head\":[0,5],\"tail\":{\"head\":[0,4],\"tail\":{\"head\":[0,3],\"tail\":{\"head\":[0,2],\"tail\":{\"head\":[0,1],\"tail\":{\"head\":[0,0],\"tail\":{\"head\":null,\"tail\":null}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}}"
 
--- Test with tuple (String, Integer) for now
--- ex.: parseJson ("{\"id\":5}", 0)
-parseJson = runState (runExceptT runParser)
+runParser :: String -> Either ParserError JsonLike
+runParser input = fst $ (runState . runExceptT $ parse) (input, 0)
 
-runParser :: Parser JsonLike
-runParser = do
+parse :: Parser JsonLike
+parse = do
   (input, _) <- lift get
   when (null input) $ throwE $ ParserError 0 "Cannot parse empty string"
   parsed <- parseJsonLike
@@ -56,8 +55,8 @@ parseJsonLike = do
     then parseJsonLikeString
   else if x == '{'
     then parseJsonLikeObject
-  -- else if x == '[' 
-  --   then parseJsonLikeList
+  else if x == '[' 
+    then parseJsonLikeList
   else if x == 'n'
     then parseJsonLikeNull
   else if isDigit x || x == '-'
@@ -119,20 +118,20 @@ parseEscape = do
 parseString :: Parser String
 parseString = do
   let continue parsed = do
-      (input, index) <- lift get
-      let x:xs = input
-      if x == '\"'
-        then do
-          lift . put . stripStart $ (xs, index + 1)
-          return parsed
-      else if x == '\\'
-        then do
-          lift . put . stripStart $ (xs, index + 1)
-          parsedEscape <- parseEscape
-          continue $ parsed ++ [x] ++ parsedEscape
-      else do
-        lift . put $ (xs, index + 1)
-        continue $ parsed ++ [x]
+        (input, index) <- lift get
+        let x:xs = input
+        if x == '\"'
+          then do
+            lift . put . stripStart $ (xs, index + 1)
+            return parsed
+        else if x == '\\'
+          then do
+            lift . put . stripStart $ (xs, index + 1)
+            parsedEscape <- parseEscape
+            continue $ parsed ++ [x] ++ parsedEscape
+        else do
+          lift . put $ (xs, index + 1)
+          continue $ parsed ++ [x]
   result <- continue ""
   return result
 
@@ -153,22 +152,24 @@ parseJsonLikeObject = do
   when (null input) $ throwE $ ParserError index "Unexpected end of object"
   let x:xs = input
   let continue parsed = do
-      keyValue <- parseJsonLikeObjectKeyValue
-      (input', index') <- lift get
-      if head input' == ','
-        then continue $ parsed ++ keyValue
-      else if head input' == '}'
-        then do
-        lift . put . stripStart $ ((tail input'), index' + 1)
-        return $ parsed ++ keyValue
-      else throwE $ ParserError index' "Object should end with '}'"   
+        keyValue <- parseJsonLikeObjectKeyValue
+        (input', index') <- lift get
+        if head input' == ','
+          then do
+            lift . put . stripStart $ (tail input', index' + 1)
+            continue $ parsed ++ keyValue
+        else if head input' == '}'
+          then do
+          lift . put . stripStart $ (tail input', index' + 1)
+          return $ parsed ++ keyValue
+        else throwE $ ParserError index' "Object should end with '}'"   
   if x == '{'
     then do
       lift . put . stripStart $ (xs, index + 1)
       result <- continue []
       return $ JsonLikeObject result
   else throwE $ ParserError index "Object should start with '{'"
- 
+
 parseJsonLikeObjectKeyValue :: Parser [(String, JsonLike)]
 parseJsonLikeObjectKeyValue = do
   (input, index) <- lift get
@@ -179,21 +180,53 @@ parseJsonLikeObjectKeyValue = do
       return $ []
   else do
     key <- parseJsonLikeString
-    value <- parseJsonLikeObjectValue
-    let (JsonLikeString k) = key
-    return $ [(k, value)]
+    (input', index') <- lift get
+    if head input' == ':'
+      then do
+        lift . put . stripStart $ (tail input', index + 1)
+        value <- parseJsonLike
+        let (JsonLikeString k) = key
+        return $ [(k, value)]
+    else throwE $ ParserError index "Unfound expected ':' after key in json object"
 
-parseJsonLikeObjectValue :: Parser JsonLike
-parseJsonLikeObjectValue = do
+parseJsonLikeListValues :: Parser [JsonLike]
+parseJsonLikeListValues = do
   (input, index) <- lift get
-  when (null input) $ throwE $ ParserError index "Unexpected end of object"
+  when (null input) $ throwE $ ParserError index "Unexpected end of list"
   let x:xs = input
-  if x == ':'
+  if (x == ']')
     then do
       lift . put . stripStart $ (xs, index + 1)
-      value <- parseJsonLike
-      return value
-  else throwE $ ParserError index "Unfound expected ':' after key in json object"
+      return []
+  else do
+    result <- parseJsonLike
+    (input', index') <- lift get
+    when (null input') $ throwE $ ParserError index' "Unexpected end of list"
+    if head input' == ','
+      then do
+        lift . put . stripStart $ ((tail input'), index' + 1)
+        result' <- parseJsonLikeListValues
+        (input'', index'') <- lift get
+        if null result' && head input'' == ']'
+          then throwE $ ParserError (index'' - 1) "No value found after comma in list"
+        else return $ [result] ++ result'
+    else return [result]
+
+parseJsonLikeList :: Parser JsonLike
+parseJsonLikeList = do
+  (input, index) <- lift get
+  let x:xs = input
+  if (x == '[')
+    then do
+      lift . put . stripStart $ (xs, index + 1)
+      result <- parseJsonLikeListValues
+      (input', index') <- lift get
+      if head input' == ']'
+        then do
+          lift . put . stripStart $ (tail input', index' + 1)
+          return $ JsonLikeList result
+      else throwE $ ParserError index "Missing array closing bracket ']'"
+  else throwE $ ParserError index "Missing array opening bracket '['"
 
 stripStart :: (String, Integer) -> (String, Integer)
 stripStart ([], index) = ([], index)
