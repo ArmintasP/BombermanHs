@@ -1,12 +1,15 @@
 module GameMap where
 import Data.Either as E (Either (..))
+import Lib3 (Command(..), Direction(..), ToJsonLike (toJsonLike))
+import Parser3 (JsonLike(..))
+import Control.Concurrent (forkIO, threadDelay, myThreadId)
+import qualified Control.Concurrent.STM as STM
+import qualified Data.Map as M
 
 newtype GameMap = GameMap [String]
 type Point = (Int, Int)
 type Coordinates = [Point]
-
-data Direction = Right | Left | Up | Down
-  deriving (Show, Eq)
+type Games = M.Map String GameData
 
 data GameData = GameData {
         bombermans :: Coordinates,
@@ -21,15 +24,53 @@ data GameData = GameData {
 gameDataEmpty :: GameData
 gameDataEmpty = GameData [] [] [] [] [] [] (0, 0)
 
+instance ToJsonLike GameData where
+  toJsonLike (GameData bm gh bo br ga wa _) =  E.Right $ JsonLikeObject [surrounding, bomb, bomb_surrounding]
+    where
+      bm' = linkedList bm
+      gh' = linkedList gh
+      bo' = linkedList bo
+      br' = linkedList br
+      ga' = linkedList ga
+      wa' = linkedList wa
+      surrounding = ("surrounding", JsonLikeObject [
+        ("bombermans", bm'), ("bricks", br'), ("ghosts", gh'), ("gates", ga'), ("wall", wa')])
+      bomb = ("bomb", bo')
+      bomb_surrounding = ("bomb_surrounding", JsonLikeNull )
 
+
+
+linkedList :: Coordinates -> JsonLike
+linkedList [] = JsonLikeObject [("head", JsonLikeNull), ("tail", JsonLikeNull)]
+linkedList ((x, y):xs) = JsonLikeObject [
+  ("head", JsonLikeList [JsonLikeInteger $ toInteger x, JsonLikeInteger $ toInteger y]),
+  ("tail", linkedList xs)]
+
+applyCommand :: Command -> (GameData, Bool) -> (GameData, Bool)
+applyCommand c (gd, b) = case c of
+  MoveBomberman direction -> (moveBomberman direction gd, b)
+  PlantBomb -> plantBomb gd
+  FetchSurrounding -> (gd, b)
+  FetchBombStatus  -> (gd, b)
+  FetchBombSurrounding  -> (gd, b)
+
+applyFetchCommands :: GameData -> [Command] -> GameData
+applyFetchCommands gd cms 
+  | a && b && c = gd
+  | a && b = (getSurrounding gd) {bomb = bomb gd }
+  | a && c = gameDataEmpty {bomb = bomb gd }
+  | b && c = (getSurrounding gd) {bomb = []}
+  | otherwise = gd
+  where a = FetchSurrounding `elem` cms
+        b = FetchBombStatus `elem` cms
+        c = FetchBombSurrounding `elem` cms
 
 moveBomberman :: Direction -> GameData -> GameData
-moveBomberman direction gd
-  | direction == GameMap.Left = moveBomberman' (x - 1, y) gd
-  | direction == GameMap.Right  = moveBomberman' (x + 1, y) gd
-  | direction == GameMap.Up = moveBomberman' (x, y - 1) gd
-  | direction == GameMap.Down = moveBomberman' (x, y + 1) gd
-  | otherwise = gd
+moveBomberman direction gd = case direction of
+  Lib3.Left -> moveBomberman' (x - 1, y) gd
+  Lib3.Right -> moveBomberman' (x + 1, y) gd
+  Lib3.Up -> moveBomberman' (x, y - 1) gd
+  Lib3.Down -> moveBomberman' (x, y + 1) gd
   where
     [(x, y)] = bombermans gd
 
@@ -37,15 +78,15 @@ moveBomberman direction gd
 --  —b—  Bomb's explosion spans to each direction (up, down, left and right) with radius of 1.
 --   |
 explodeBomb :: GameData -> GameData
-explodeBomb gd = gd {bricks = remainingBricks, ghosts = remainingGhosts}
+explodeBomb gd = gd {bricks = remainingBricks, ghosts = remainingGhosts, bomb = []}
   where
     [(x, y)] = bomb gd
     blastSpots = [(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
     remainingBricks = removePoints (bricks gd) blastSpots
     remainingGhosts = removePoints (ghosts gd) blastSpots
 
-plantBomb :: GameData -> GameData
-plantBomb gd = if isBombPlanted then gd  else gd {bomb = plantSpot}
+plantBomb :: GameData -> (GameData, Bool)
+plantBomb gd = if isBombPlanted then (gd, False) else (gd {bomb = plantSpot}, True)
   where
     plantSpot = bombermans gd
     bomb' = bomb gd
@@ -56,7 +97,7 @@ getBombSurrounding :: GameData -> GameData
 getBombSurrounding = error "Not implemented"
 
 getBombStatus :: GameData -> GameData
-getBombStatus gd = gameDataEmpty {bomb = bomb gd}
+getBombStatus gd = gd {bomb = bomb gd}
 
 -- | Bomberman's vision range
 radius :: Int
@@ -116,9 +157,9 @@ gameMap2 :: GameMap
 gameMap2 = GameMap [
         "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
         "XM    BBBBBBBBX                                           OX",
-        "XBXBX X X X X X                                            X",
-        "X   B B       X                                            X",
-        "X X X X X XBXBX                                            X",
+        "X     X X X X X                                            X",
+        "X     Bb      X                                            X",
+        "X     X X XBXBX                                            X",
         "X   B   B     X                                            X",
         "X X XBXBX XBXBX          BBBBBBBBBBBBBB                    X",
         "X         B B X          B      G     B                    X",
@@ -167,7 +208,7 @@ getGameMapData' :: GameMap -> [(Char, Point)]
 getGameMapData' (GameMap m) = do
   (str, y) <- zip m [0..]
   (sym, x) <- zip str [0..]
-  return (sym, (x, y))
+  return (sym, (y, x))
 
 
 addPoint :: Char -> Point -> GameData -> GameData
@@ -177,4 +218,5 @@ addPoint c cord gd
   | c == bricksSym = gd {bricks = bricks gd ++ [cord]}
   | c == gatesSym = gd {gates = gates gd ++ [cord]}
   | c == wallSym = gd {wall = wall gd ++ [cord]}
+  | c == bombsSym = gd {bomb = [cord]}
   | otherwise = gd
