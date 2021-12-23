@@ -29,9 +29,8 @@ library
       Lib3
       MapElements
       MapRender
-      Parser2
       Parser3
-      Tests
+      Parser4
   other-modules:
       Paths_bomberman_client
   hs-source-dirs:
@@ -39,6 +38,7 @@ library
   build-depends:
       HUnit
     , base >=4.7 && <5
+    , transformers
   default-language: Haskell2010
 
 executable bomberman-client
@@ -56,6 +56,7 @@ executable bomberman-client
     , bytestring
     , lens
     , string-conversions
+    , transformers
     , wreq
   default-language: Haskell2010
 
@@ -71,4 +72,5 @@ test-suite bomberman-client-test
       HUnit
     , base >=4.7 && <5
     , bomberman-client
+    , transformers
   default-language: Haskell2010
