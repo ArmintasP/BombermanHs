@@ -1,5 +1,3 @@
-{-# LANGUAGE FlexibleInstances #-}
-
 module Parser4 where
 
 import Data.Char
@@ -8,7 +6,7 @@ import Data.List
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans.Class (lift)
+import Control.Monad.Trans.Class (lift, MonadTrans)
 import Control.Monad.Trans.Except (ExceptT, runExceptT, throwE)
 import Control.Monad.Trans.State.Strict (State, StateT, get, put, runState, evalState)
 
@@ -38,8 +36,7 @@ runParser input = fst $ (runState . runExceptT $ parse) (input, 0)
 
 parse :: Parser JsonLike
 parse = do
-  (input, _) <- lift get
-  when (null input) $ throwE $ ParserError 0 "Cannot parse empty string"
+  (input, _) <- getState
   parsed <- parseJsonLike
   (input', index') <- lift get
   if null input'
@@ -48,8 +45,7 @@ parse = do
 
 parseJsonLike :: Parser JsonLike
 parseJsonLike = do
-  (input, index) <- lift get
-  when (null input) $ throwE $ ParserError index "Unexpected end of string"
+  (input, index) <- getState
   let x:xs = input
   if x == '\"'
     then parseJsonLikeString
@@ -65,16 +61,16 @@ parseJsonLike = do
 
 parseJsonLikeNull :: Parser JsonLike
 parseJsonLikeNull = do
-  (input, index) <- lift get
+  (input, index) <- getState
   if "null" == (take 4 input)
     then do
-      lift . put . stripStart $ (drop 4 input, index + 4)
+      putState (drop 4 input, index + 4)
       return JsonLikeNull
   else throwE $ ParserError index "Invalid null value"
 
 parseJsonLikeInteger :: Parser JsonLike
 parseJsonLikeInteger = do
-  (input, index) <- lift get
+  (input, index) <- getState
   let str = takeWhile (\x -> isDigit x || x == '-') input
       strLen = length str
       tStr = tail str
@@ -85,15 +81,15 @@ parseJsonLikeInteger = do
   else if strLen > 1 && head str == '0'
     then throwE $ ParserError index "Number cannot start with 0"
   else do
-    lift . put . stripStart $ (drop strLen input, index + toInteger strLen)
+    putState (drop strLen input, index + toInteger strLen)
     return $ JsonLikeInteger $ read str
 
 parseHex :: Parser String
 parseHex = do
-  (input, index) <- lift get
+  (input, index) <- getStateString
   if all isHexDigit (take 4 input)
     then do
-      lift . put . stripStart $ (drop 4 input, index + 4)
+      putState (drop 4 input, index + 4)
       return (take 4 input)
   else throwE $ ParserError index "Invalid hex code"
 
@@ -101,16 +97,15 @@ isEscape ch = ch `elem` ['\\', '/', 'b', 'f', 'n', 'r', 't', '\"']
 
 parseEscape :: Parser String
 parseEscape = do
-  (input, index) <- lift get
-  when (null input) $ throwE $ ParserError index "Missing escape character"
+  (input, index) <- getStateString
   let x:xs = input
   if isEscape x
     then do
-      lift . put . stripStart $ (xs, index + 1)
+      putState (xs, index + 1)
       return [x]
   else if x == 'u'
     then do
-      lift . put . stripStart $ (xs, index + 1)
+      putStateString (xs, index + 1)
       parsedHex <- parseHex
       return $ [x] ++ parsedHex
   else throwE $ ParserError index "Invalid escape character"
@@ -118,15 +113,15 @@ parseEscape = do
 parseString :: Parser String
 parseString = do
   let continue parsed = do
-        (input, index) <- lift get
+        (input, index) <- getStateString
         let x:xs = input
         if x == '\"'
           then do
-            lift . put . stripStart $ (xs, index + 1)
+            putState (xs, index + 1)
             return parsed
         else if x == '\\'
           then do
-            lift . put . stripStart $ (xs, index + 1)
+            lift . put $ (xs, index + 1)
             parsedEscape <- parseEscape
             continue $ parsed ++ [x] ++ parsedEscape
         else do
@@ -137,53 +132,53 @@ parseString = do
 
 parseJsonLikeString :: Parser JsonLike
 parseJsonLikeString = do
-  (input, index) <- lift get
+  (input, index) <- getState
   let x:xs = input
   if x == '\"'
     then do
-      lift . put . stripStart $ (xs, index + 1)
+      putStateString (xs, index + 1)
       parsed <- parseString
       return $ JsonLikeString parsed
   else throwE $ ParserError index "String should start with '\"'"
 
 parseJsonLikeObject :: Parser JsonLike
 parseJsonLikeObject = do
-  (input, index) <- lift get
-  when (null input) $ throwE $ ParserError index "Unexpected end of object"
+  (input, index) <- getState
   let x:xs = input
   let continue parsed = do
         keyValue <- parseJsonLikeObjectKeyValue
-        (input', index') <- lift get
+        (input', index') <- getState
         if head input' == ','
           then do
-            lift . put . stripStart $ (tail input', index' + 1)
+            putState (tail input', index' + 1)
+            (input'', index'') <- getState
+            when (head input'' == '}') $ throwE $ ParserError index "New key:value pair expected"
             continue $ parsed ++ keyValue
         else if head input' == '}'
           then do
-          lift . put . stripStart $ (tail input', index' + 1)
+          putState (tail input', index' + 1)
           return $ parsed ++ keyValue
         else throwE $ ParserError index' "Object should end with '}'"   
   if x == '{'
     then do
-      lift . put . stripStart $ (xs, index + 1)
+      putState (xs, index + 1)
       result <- continue []
       return $ JsonLikeObject result
   else throwE $ ParserError index "Object should start with '{'"
 
 parseJsonLikeObjectKeyValue :: Parser [(String, JsonLike)]
 parseJsonLikeObjectKeyValue = do
-  (input, index) <- lift get
-  when (null input) $ throwE $ ParserError index "Unexpected end of object"
+  (input, index) <- getState
   let x:xs = input
   if x == '}'
     then do
       return $ []
   else do
     key <- parseJsonLikeString
-    (input', index') <- lift get
+    (input', index') <- getState
     if head input' == ':'
       then do
-        lift . put . stripStart $ (tail input', index + 1)
+        putState (tail input', index + 1)
         value <- parseJsonLike
         let (JsonLikeString k) = key
         return $ [(k, value)]
@@ -191,22 +186,20 @@ parseJsonLikeObjectKeyValue = do
 
 parseJsonLikeListValues :: Parser [JsonLike]
 parseJsonLikeListValues = do
-  (input, index) <- lift get
-  when (null input) $ throwE $ ParserError index "Unexpected end of list"
+  (input, index) <- getState
   let x:xs = input
   if (x == ']')
     then do
-      lift . put . stripStart $ (xs, index + 1)
+      putState (input, index + 1)
       return []
   else do
     result <- parseJsonLike
-    (input', index') <- lift get
-    when (null input') $ throwE $ ParserError index' "Unexpected end of list"
+    (input', index') <- getState
     if head input' == ','
       then do
-        lift . put . stripStart $ ((tail input'), index' + 1)
+        putState (tail input', index' + 1)
         result' <- parseJsonLikeListValues
-        (input'', index'') <- lift get
+        (input'', index'') <- getState
         if null result' && head input'' == ']'
           then throwE $ ParserError (index'' - 1) "No value found after comma in list"
         else return $ [result] ++ result'
@@ -214,16 +207,16 @@ parseJsonLikeListValues = do
 
 parseJsonLikeList :: Parser JsonLike
 parseJsonLikeList = do
-  (input, index) <- lift get
+  (input, index) <- getState
   let x:xs = input
   if (x == '[')
     then do
-      lift . put . stripStart $ (xs, index + 1)
+      putState (xs, index + 1)
       result <- parseJsonLikeListValues
-      (input', index') <- lift get
+      (input', index') <- getState
       if head input' == ']'
         then do
-          lift . put . stripStart $ (tail input', index' + 1)
+          putState (tail input', index' + 1)
           return $ JsonLikeList result
       else throwE $ ParserError index "Missing array closing bracket ']'"
   else throwE $ ParserError index "Missing array opening bracket '['"
@@ -236,3 +229,27 @@ stripStart ([x], index)
 stripStart (x:xs, index)
   | isSpace x = stripStart (xs, index + 1)
   | otherwise = (x:xs, index)
+
+putState :: (String, Integer) -> Parser ()
+putState (input, index) = do
+  lift . put . stripStart $ (input, index)
+
+getState :: Parser (String, Integer)
+getState = do
+  (input, index) <- lift get
+  when (null input) $ throwE $ ParserError index "Unexpected end of input"
+  putState (input, index)
+  (input', index') <- lift get
+  when (null input') $ throwE $ ParserError index' "Unexpected end of input"
+  return $ (input', index')
+
+putStateString :: (String, Integer) -> Parser ()
+putStateString (input, index) = do
+  lift . put $ (input, index)
+
+getStateString :: Parser (String, Integer)
+getStateString = do
+  (input, index) <- lift get
+  when (null input) $ throwE $ ParserError index "Unexpected end of input"
+  return $ (input, index)
+  
