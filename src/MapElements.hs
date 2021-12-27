@@ -1,6 +1,6 @@
 module MapElements where
 import GameParser (jsonToCoordinates)
-import Parser3 (JsonLike)
+import Parser4 (JsonLike)
 
 -- | Record fields with prefix 'b' are from bomb_surrounding
 data MapElements = MapElements {

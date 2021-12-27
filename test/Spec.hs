@@ -2,7 +2,7 @@ module Main where
 
 import Test.HUnit
 import Data.Either
-import Parser3
+import Parser4
 import MapElements (MapElements (MapElements), createMapElements)
 
 main :: IO ()

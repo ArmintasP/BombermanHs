@@ -11,7 +11,7 @@ import Data.Function ((&))
 import Data.List as L (concat, (++))
 import Data.String.Conversions (cs)
 import Lib3
-import Parser3 (JsonLike)
+import Parser4 (JsonLike)
 import MapRender (init, render, update, State (State))
 import Network.Wreq (post, responseBody)
 import Network.Wreq.Lens (Response (..))
