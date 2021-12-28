@@ -38,14 +38,7 @@ instance ToJsonLike GameData where
       bomb = ("bomb", bo')
       bomb_surrounding = ("bomb_surrounding", JsonLikeNull )
 
-
-
-linkedList :: Coordinates -> JsonLike
-linkedList [] = JsonLikeObject [("head", JsonLikeNull), ("tail", JsonLikeNull)]
-linkedList ((x, y):xs) = JsonLikeObject [
-  ("head", JsonLikeList [JsonLikeInteger $ toInteger x, JsonLikeInteger $ toInteger y]),
-  ("tail", linkedList xs)]
-
+-- | Modifies current map, unless it's a fetch command - then it does nothing.
 applyCommand :: Command -> (GameData, Bool) -> (GameData, Bool)
 applyCommand c (gd, b) = case c of
   MoveBomberman direction -> (moveBomberman direction gd, b)
@@ -54,6 +47,7 @@ applyCommand c (gd, b) = case c of
   FetchBombStatus  -> (gd, b)
   FetchBombSurrounding  -> (gd, b)
 
+-- | Use this function for fetch commands.
 applyFetchCommands :: GameData -> [Command] -> GameData
 applyFetchCommands gd cms 
   | a && b && c = gd
@@ -96,6 +90,7 @@ plantBomb gd = if isBombPlanted then (gd, False) else (gd {bomb = plantSpot}, Tr
 getBombSurrounding :: GameData -> GameData
 getBombSurrounding = error "Not implemented"
 
+-- | Fetch function. Returns bomb status only.
 getBombStatus :: GameData -> GameData
 getBombStatus gd = gd {bomb = bomb gd}
 
@@ -103,6 +98,7 @@ getBombStatus gd = gd {bomb = bomb gd}
 radius :: Int
 radius = 5
 
+-- | Fetch function. Returns only surrounding objects.
 getSurrounding :: GameData -> GameData
 getSurrounding gd = gd {bombermans = [bm], ghosts = gh, bomb = [], bricks = br, gates = gt, wall = wl}
   where
@@ -181,6 +177,14 @@ bombsSym = 'b'
 -- |
 -- | Helper functions
 -- |
+
+
+
+linkedList :: Coordinates -> JsonLike
+linkedList [] = JsonLikeObject [("head", JsonLikeNull), ("tail", JsonLikeNull)]
+linkedList ((x, y):xs) = JsonLikeObject [
+  ("head", JsonLikeList [JsonLikeInteger $ toInteger x, JsonLikeInteger $ toInteger y]),
+  ("tail", linkedList xs)]
 
 
 moveBomberman' :: Point -> GameData -> GameData

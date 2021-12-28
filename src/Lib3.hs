@@ -97,7 +97,7 @@ invalidType :: String -> Either String b
 invalidType = E.Left . (++) "Invalid value type for " 
 
 data Direction = Right | Left | Up | Down
-  deriving (Show)
+  deriving (Show, Eq)
 
 data Command
   = MoveBomberman Direction
@@ -105,7 +105,7 @@ data Command
   | PlantBomb
   | FetchBombStatus
   | FetchBombSurrounding
-  deriving (Show)
+  deriving (Show, Eq)
 
 instance ToJsonLike Command where
   toJsonLike (MoveBomberman dir) = E.Right $ JsonLikeObject [("name", JsonLikeString $ getConst (MoveBomberman dir)), ("direction", JsonLikeString (show dir))]

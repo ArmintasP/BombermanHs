@@ -27,37 +27,42 @@ type Games = M.Map String GameData
 main :: IO ()
 main = do
   gamesVar <- STM.newTVarIO initializeGames
-  scotty 3000 (serverApplication gamesVar)
+  S.scotty 3000 (serverApplication gamesVar)
 
+-- | Listens to HTTP POST/GET
 serverApplication :: STM.TVar Games -> S.ScottyM ()
 serverApplication gamesVar = do
-  post (capture "/game/play/:uuid") $ do
-    addHeader (L.pack "Content-Type") (L.pack "application/json;")
+  S.post (capture "/game/play/:uuid") $ do
+    addJsonHeader
     uuidLazy <- getParameter "uuid"
-    rawBody <- body --gameData <- findGame uuid gamesVar
+    rawBody <- S.body
     let uuid = L.unpack uuidLazy
         req = C.unpack rawBody
     response <- liftIO $ playGame req uuid gamesVar
 
     case response of
-      (E.Left e) -> raw $ cs $ show e
-      (E.Right js) -> raw $ cs $ extract $ fromJsonLike js
+      (E.Left e) -> S.raw $ cs $ show e
+      (E.Right js) -> S.raw $ cs $ extract $ fromJsonLike js
 
-  get (literal "/game/new/random") $ do
-    addHeader (L.pack "Content-Type") (L.pack "application/json;")
+
+  S.get (literal "/game/new/random") $ do
+    addJsonHeader
     (str, gameData, uuid) <- liftIO createNewGameSession
     if uuid == "" then
-      raw $ cs ("Couldn't create a game" :: String)
+      S.raw $ cs ("Couldn't create a game" :: String)
     else do
       liftIO $ insertGame uuid gameData gamesVar
-      raw $ cs str
+      S.raw $ cs str
 
-  get (literal "/game/list") $ do
+
+  S.get (literal "/game/list") $ do
+    addJsonHeader
     games <- liftIO $ STM.readTVarIO gamesVar
     let uuids = show $ M.keys games
-    addHeader (L.pack "Content-Type") (L.pack "application/json;")
-    raw $ cs uuids
+    S.raw $ cs uuids
 
+addJsonHeader :: ActionM()
+addJsonHeader = S.addHeader (L.pack "Content-Type") (L.pack "application/json;")
 
 insertGame :: String -> GameData -> STM.TVar Games -> IO ()
 insertGame uuid gameData gamesVar = STM.atomically $ insertGame' uuid gameData gamesVar
@@ -128,7 +133,7 @@ initializeGames :: Games
 initializeGames = M.empty
 
 getParameter :: String -> ActionM L.Text
-getParameter str = param (L.pack str) `rescue` (\str -> return str)
+getParameter str = S.param (L.pack str) `S.rescue` (\str -> return str)
 
 generateUUID :: IO String
 generateUUID = do toString <$> nextRandom
