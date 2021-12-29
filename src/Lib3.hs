@@ -132,7 +132,28 @@ instance ToJsonLike Commands where
 
 -- Note: if using FromJsonLike, always use it with ::String, as there is no need (and logical means) to convert a JsonLike to Commands.
 instance FromJsonLike Commands where
-  fromJsonLike js = E.Left (show js)
+  fromJsonLike js = E.Right $ toCommands js'
+    where JsonLikeObject js' = js
+
+toCommands (("command", JsonLikeObject value):[]) = Commands (getCommand value) Nothing
+toCommands (("command", JsonLikeObject value):xs) = Commands (getCommand value) (Just (toCommands value'))
+  where [("additional", JsonLikeObject value')] = xs
+
+getCommand (("name", JsonLikeString value):[]) = getCommandName value
+getCommand (("name", JsonLikeString value):xs) = MoveBomberman (getDirection dir)
+  where [("direction", JsonLikeString dir)] = xs
+
+getDirection str = case str of
+  "Right" -> Lib3.Right
+  "Left" -> Lib3.Left
+  "Up" -> Up
+  "Down" -> Down
+
+getCommandName str = case str of
+  "FetchSurrounding" -> FetchSurrounding
+  "PlantBomb" -> PlantBomb
+  "FetchBombStatus" -> FetchBombStatus
+  "FetchBombSurrounding" -> FetchBombSurrounding
 
 newtype CommandsResponse = CommandsResponse String
   deriving (Show)
