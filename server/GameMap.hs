@@ -50,7 +50,7 @@ applyCommand c (gd, b) = case c of
 -- | Use this function for fetch commands.
 applyFetchCommands :: GameData -> [Command] -> GameData
 applyFetchCommands gd cms 
-  | a && b && c = gd
+  | a && b && c = (getSurrounding gd) {bomb = bomb gd }
   | a && b = (getSurrounding gd) {bomb = bomb gd }
   | a && c = gameDataEmpty {bomb = bomb gd }
   | b && c = (getSurrounding gd) {bomb = []}
@@ -61,10 +61,10 @@ applyFetchCommands gd cms
 
 moveBomberman :: Direction -> GameData -> GameData
 moveBomberman direction gd = case direction of
-  Lib3.Left -> moveBomberman' (x - 1, y) gd
-  Lib3.Right -> moveBomberman' (x + 1, y) gd
-  Lib3.Up -> moveBomberman' (x, y - 1) gd
-  Lib3.Down -> moveBomberman' (x, y + 1) gd
+  Lib3.Up -> moveBomberman' (x - 1, y) gd
+  Lib3.Down -> moveBomberman' (x + 1, y) gd
+  Lib3.Left -> moveBomberman' (x, y - 1) gd
+  Lib3.Right -> moveBomberman' (x, y + 1) gd
   where
     [(x, y)] = bombermans gd
 
@@ -154,7 +154,7 @@ gameMap2 = GameMap [
         "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
         "XM    BBBBBBBBX                                           OX",
         "X     X X X X X                                            X",
-        "X     Bb      X                                            X",
+        "X     B       X                                            X",
         "X     X X XBXBX                                            X",
         "X   B   B     X                                            X",
         "X X XBXBX XBXBX          BBBBBBBBBBBBBB                    X",
@@ -172,7 +172,6 @@ bricksSym = 'B'
 gatesSym = 'O'
 ghostsSym = 'G'
 wallSym = 'X'
-bombsSym = 'b'
 
 -- |
 -- | Helper functions
@@ -190,7 +189,7 @@ linkedList ((x, y):xs) = JsonLikeObject [
 moveBomberman' :: Point -> GameData -> GameData
 moveBomberman' (x, y) gd = if isOutOfMargins || isBlocked then gd else gd {bombermans = [(x, y)]}
   where
-    (maxX, maxY) = mapSize gd
+    (maxY, maxX) = mapSize gd
     isOutOfMargins = x < 0 || y < 0 || x >= maxX || y >= maxY
     isBlocked = ((x, y) `elem` bricks gd) || ((x, y) `elem` wall gd)
 
@@ -198,7 +197,7 @@ moveBomberman' (x, y) gd = if isOutOfMargins || isBlocked then gd else gd {bombe
 getInRange :: Int -> Point -> Coordinates -> Coordinates
 getInRange r p [] = []
 getInRange r (x', y') [(x,y)]
-  | (x' - r <= x) && (x' + r >= x) && (y' - r <= x) && (y' + r >= y) = [(x, y)]
+  | (x' - r <= x) && (x' + r >= x) && (y' - r <= y) && (y' + r >= y) = [(x, y)]
   | otherwise = []
 getInRange r p (x:xs) = getInRange r p [x] ++ getInRange r p xs
 
@@ -222,5 +221,4 @@ addPoint c cord gd
   | c == bricksSym = gd {bricks = bricks gd ++ [cord]}
   | c == gatesSym = gd {gates = gates gd ++ [cord]}
   | c == wallSym = gd {wall = wall gd ++ [cord]}
-  | c == bombsSym = gd {bomb = [cord]}
   | otherwise = gd
