@@ -12,7 +12,7 @@ import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.IO.Class
 import Control.Monad
 import Control.Monad.Trans.Class
-import Parser3 (JsonLike(..), runParser)
+import Parser4 (JsonLike(..), runParser)
 import Lib3 (fromJsonLike, Commands(..), Command(..), ToJsonLike (toJsonLike), FromJsonLike (fromJsonLike), Direction (Right, Up, Down), toCommandList)
 import Data.Either as E
 import Data.String.Conversions (cs)

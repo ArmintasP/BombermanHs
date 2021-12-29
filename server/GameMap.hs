@@ -1,7 +1,7 @@
 module GameMap where
 import Data.Either as E (Either (..))
 import Lib3 (Command(..), Direction(..), ToJsonLike (toJsonLike))
-import Parser3 (JsonLike(..))
+import Parser4 (JsonLike(..))
 import Control.Concurrent (forkIO, threadDelay, myThreadId)
 import qualified Control.Concurrent.STM as STM
 import qualified Data.Map as M
