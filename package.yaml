@@ -65,6 +65,7 @@ executables:
     - transformers
     - stm
     - containers
+    - lens
 
 tests:
   bomberman-client-test:

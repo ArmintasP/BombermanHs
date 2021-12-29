@@ -155,26 +155,6 @@ toCommandList :: Commands -> [Command]
 toCommandList (Commands cmd (Just ad)) = [cmd] ++ toCommandList ad
 toCommandList (Commands cmd Nothing) = [cmd]
 
-isMoveBomberman :: Command -> Bool
-isMoveBomberman (MoveBomberman _) = True
-isMoveBomberman _ = False
-
-isFetchSurrounding :: Command -> Bool
-isFetchSurrounding FetchSurrounding = True
-isFetchSurrounding _ = False
-
-isPlantBomb :: Command -> Bool
-isPlantBomb PlantBomb = True
-isPlantBomb _ = False
-
-isFetchBombStatus :: Command -> Bool
-isFetchBombStatus FetchBombStatus = True
-isFetchBombStatus _ = False
-
-isFetchBombSurrounding :: Command -> Bool
-isFetchBombSurrounding FetchBombSurrounding = True
-isFetchBombSurrounding _ = False
-
 newtype CommandsResponse = CommandsResponse String
   deriving (Show)
 
