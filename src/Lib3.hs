@@ -97,7 +97,7 @@ invalidType :: String -> Either String b
 invalidType = E.Left . (++) "Invalid value type for " 
 
 data Direction = Right | Left | Up | Down
-  deriving (Show, Eq)
+  deriving (Show, Eq, Read)
 
 data Command
   = MoveBomberman Direction
@@ -105,7 +105,7 @@ data Command
   | PlantBomb
   | FetchBombStatus
   | FetchBombSurrounding
-  deriving (Show, Eq)
+  deriving (Show, Eq, Read)
 
 instance ToJsonLike Command where
   toJsonLike (MoveBomberman dir) = E.Right $ JsonLikeObject [("name", JsonLikeString $ getConst (MoveBomberman dir)), ("direction", JsonLikeString (show dir))]
@@ -135,25 +135,45 @@ instance FromJsonLike Commands where
   fromJsonLike js = E.Right $ toCommands js'
     where JsonLikeObject js' = js
 
+toCommands :: [(String, JsonLike)] -> Commands
 toCommands (("command", JsonLikeObject value):[]) = Commands (getCommand value) Nothing
 toCommands (("command", JsonLikeObject value):xs) = Commands (getCommand value) (Just (toCommands value'))
   where [("additional", JsonLikeObject value')] = xs
 
+getCommand :: [(String, JsonLike)] -> Command
 getCommand (("name", JsonLikeString value):[]) = getCommandName value
 getCommand (("name", JsonLikeString value):xs) = MoveBomberman (getDirection dir)
   where [("direction", JsonLikeString dir)] = xs
 
-getDirection str = case str of
-  "Right" -> Lib3.Right
-  "Left" -> Lib3.Left
-  "Up" -> Up
-  "Down" -> Down
+getDirection :: String -> Direction
+getDirection = read
 
-getCommandName str = case str of
-  "FetchSurrounding" -> FetchSurrounding
-  "PlantBomb" -> PlantBomb
-  "FetchBombStatus" -> FetchBombStatus
-  "FetchBombSurrounding" -> FetchBombSurrounding
+getCommandName :: String -> Command
+getCommandName = read
+
+toCommandList :: Commands -> [Command]
+toCommandList (Commands cmd (Just ad)) = [cmd] ++ toCommandList ad
+toCommandList (Commands cmd Nothing) = [cmd]
+
+isMoveBomberman :: Command -> Bool
+isMoveBomberman (MoveBomberman _) = True
+isMoveBomberman _ = False
+
+isFetchSurrounding :: Command -> Bool
+isFetchSurrounding FetchSurrounding = True
+isFetchSurrounding _ = False
+
+isPlantBomb :: Command -> Bool
+isPlantBomb PlantBomb = True
+isPlantBomb _ = False
+
+isFetchBombStatus :: Command -> Bool
+isFetchBombStatus FetchBombStatus = True
+isFetchBombStatus _ = False
+
+isFetchBombSurrounding :: Command -> Bool
+isFetchBombSurrounding FetchBombSurrounding = True
+isFetchBombSurrounding _ = False
 
 newtype CommandsResponse = CommandsResponse String
   deriving (Show)

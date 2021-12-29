@@ -10,8 +10,8 @@ import qualified Data.ByteString.Lazy.Char8 as C
 import Control.Monad.IO.Class
 import Control.Monad
 import Control.Monad.Trans.Class
-import Parser3 (JsonLike(..))
-import Lib3 (fromJsonLike, Commands(..), Command(..), ToJsonLike (toJsonLike), Direction (Right, Up, Down))
+import Parser3 (JsonLike(..), runParser)
+import Lib3 (fromJsonLike, Commands(..), Command(..), ToJsonLike (toJsonLike), FromJsonLike (fromJsonLike), Direction (Right, Up, Down), toCommandList, isMoveBomberman, isFetchSurrounding, isPlantBomb, isFetchBombStatus, isFetchBombSurrounding)
 import Data.Either as E
 import Data.String.Conversions (cs)
 import qualified Data.ByteString.Char8 as B
@@ -112,7 +112,29 @@ applyGameCommands :: (GameData, Bool) -> [Command] -> (GameData, Bool)
 applyGameCommands = foldl (flip applyCommand)
 
 parseCommands :: String -> Either String ([Command], [Command])
-parseCommands str = error "Not implemented"
+parseCommands str = case runParser str of
+  E.Right js -> case fromJsonLike js of
+    E.Right (Commands cmds ad) ->
+      case countCommand commandList of
+        False -> E.Right $ splitCommand commandList
+        True -> E.Left "A type of Command occurs more than once"
+      where commandList = toCommandList (Commands cmds ad)
+    E.Left _ -> E.Left "Jsonlike could not be parsed to Commands"
+  E.Left _ -> E.Left "Command string could not be parsed to jsonlike"
+
+isOccurence :: (a -> Bool) -> [a] -> Bool
+isOccurence pred list = (<) (length $ filter pred list) 2
+
+countCommand :: [Command] -> Bool
+countCommand cmds = elem False [mb, fs, pb, fbst, fbs]
+  where mb = isOccurence isMoveBomberman cmds
+        fs = isOccurence isFetchSurrounding cmds
+        pb = isOccurence isPlantBomb cmds
+        fbst = isOccurence isFetchBombStatus cmds
+        fbs = isOccurence isFetchBombSurrounding cmds
+
+splitCommand :: [Command] -> ([Command], [Command])
+splitCommand cmds = span (\x -> (isMoveBomberman x || isPlantBomb x)) cmds
 
 commandsToList :: Commands -> ([Command], [Command]) -> ([Command], [Command])
 commandsToList (Commands c Nothing) (xs, xs') = case c of
