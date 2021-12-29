@@ -1,3 +1,5 @@
+{-# LANGUAGE TemplateHaskell #-}
+
 module Main where
 
 import Web.Scotty as S
@@ -11,7 +13,7 @@ import Control.Monad.IO.Class
 import Control.Monad
 import Control.Monad.Trans.Class
 import Parser3 (JsonLike(..), runParser)
-import Lib3 (fromJsonLike, Commands(..), Command(..), ToJsonLike (toJsonLike), FromJsonLike (fromJsonLike), Direction (Right, Up, Down), toCommandList, isMoveBomberman, isFetchSurrounding, isPlantBomb, isFetchBombStatus, isFetchBombSurrounding)
+import Lib3 (fromJsonLike, Commands(..), Command(..), ToJsonLike (toJsonLike), FromJsonLike (fromJsonLike), Direction (Right, Up, Down), toCommandList)
 import Data.Either as E
 import Data.String.Conversions (cs)
 import qualified Data.ByteString.Char8 as B
@@ -21,6 +23,10 @@ import Control.Concurrent.STM
 import qualified Control.Concurrent.STM as STM
 import Control.Concurrent (threadDelay)
 import GHC.Conc (forkIO)
+import Control.Lens
+import Control.Lens.Extras (is)
+
+makePrisms ''Command
 
 type Games = M.Map String GameData
 
@@ -127,14 +133,14 @@ isOccurence pred list = (<) (length $ filter pred list) 2
 
 countCommand :: [Command] -> Bool
 countCommand cmds = elem False [mb, fs, pb, fbst, fbs]
-  where mb = isOccurence isMoveBomberman cmds
-        fs = isOccurence isFetchSurrounding cmds
-        pb = isOccurence isPlantBomb cmds
-        fbst = isOccurence isFetchBombStatus cmds
-        fbs = isOccurence isFetchBombSurrounding cmds
+  where mb = isOccurence (is _MoveBomberman) cmds
+        fs = isOccurence (is _FetchSurrounding) cmds
+        pb = isOccurence (is _PlantBomb) cmds
+        fbst = isOccurence (is _FetchBombStatus) cmds
+        fbs = isOccurence (is _FetchBombSurrounding) cmds
 
 splitCommand :: [Command] -> ([Command], [Command])
-splitCommand cmds = span (\x -> (isMoveBomberman x || isPlantBomb x)) cmds
+splitCommand cmds = span (\x -> (is _MoveBomberman x || is _PlantBomb x)) cmds
 
 commandsToList :: Commands -> ([Command], [Command]) -> ([Command], [Command])
 commandsToList (Commands c Nothing) (xs, xs') = case c of
