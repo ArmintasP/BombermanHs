@@ -8,19 +8,32 @@ Contents
   - [Parsing](#parsing)
   - [Rendering](#rendering)
   - [Threads](#threads)
+  - [Server](#server)
   - [Testing](#testing)
 <hr>
 
 
 ## Usage
 Open terminal in project's directory & write
+`stack run bomberman-server`
+to run bomberman's server, then open another terminal & write
 `stack run`
-to play bomberman or
+to run the client.
+
+OR
+
 `stack test`
 to run tests.
 <hr>
 
 ## Current state
+##### version 4
+![Bomberman demo3](preview3.gif)
+- Received JSON data is parsed using our own  `/src/Parser4.hs` functions.
+- Colored rendering is done in `/src/MapRender.hs`.
+- Testing is done in `/test/Spec.hs`.
+- Server logic is in `/server/`
+
 ##### version 3
 ![Bomberman demo3](preview3.gif)
 - Received JSON data is parsed using our own  `/src/Parser3.hs` functions.
@@ -57,18 +70,24 @@ data JsonLike
 
 2. We determine the JsonLike value type and pass to an according parser.
 ```haskell
-parseJsonLike :: (String, Integer) -> Either String (JsonLike, (String, Integer))
-parseJsonLike ([], index) = Left $ "Error after index " ++ show index ++ ": Unexpected end of string"
-parseJsonLike (x:xs, index)
-  | x == '\"' = parseJsonLikeString (x:xs, index)
-  | x == '{' = parseJsonLikeObject (x:xs, index)
-  | x == '[' = parseJsonLikeList (x:xs, index)
-  | x == 'n' = parseJsonLikeNull (x:xs, index)
-  | isDigit x || x == '-' = parseJsonLikeInteger (x:xs, index)
-  | otherwise = Left $ "Error after index " ++ show index ++ ": No json value could be matched"
+parseJsonLike :: Parser JsonLike
+parseJsonLike = do
+  (input, index) <- getState
+  let x:xs = input
+  if x == '\"'
+    then parseJsonLikeString
+  else if x == '{'
+    then parseJsonLikeObject
+  else if x == '[' 
+    then parseJsonLikeList
+  else if x == 'n'
+    then parseJsonLikeNull
+  else if isDigit x || x == '-'
+    then parseJsonLikeInteger
+  else throwE $ ParserError index "No json value could be matched"
 ```
 
-3. Before parsing any JsonLike value, we drop the beggining of the string while it's a whitespace character.
+3. Before parsing any JsonLike value, we drop the beginning of the string while it's a whitespace character.
 ```haskell
 stripStart :: (String, Integer) -> (String, Integer)
 stripStart ([], index) = ([], index)
@@ -198,9 +217,146 @@ launchThread state sess uuid = do
 and the other which renders the game every `renderingInterval`, which is set to 100000 microseconds right now.
 
 
+### Server
+#### `/server/Main.hs`
+Our server's API is written using **Scotty framework**. The endpoints,
+to which our server reacts and calls specific functions, 
+are defined in the `serverApplication` function:
+```haskell
+serverApplication :: STM.TVar Games -> S.ScottyM ()
+serverApplication gamesVar = do
+  S.post (capture "/game/play/:uuid") $ do
+    addJsonHeader
+    uuidLazy <- getParameter "uuid"
+    rawBody <- S.body
+    let uuid = L.unpack uuidLazy
+        req = C.unpack rawBody
+    response <- liftIO $ playGame req uuid gamesVar
+
+    case response of
+      (E.Left e) -> S.raw $ cs $ show e
+      (E.Right js) -> S.raw $ cs $ extract $ fromJsonLike js
+
+
+  S.get (literal "/game/new/random") $ do
+    addJsonHeader
+    (str, gameData, uuid) <- liftIO createNewGameSession
+    if uuid == "" then
+      S.raw $ cs ("Couldn't create a game" :: String)
+    else do
+      liftIO $ insertGame uuid gameData gamesVar
+      S.raw $ cs str
+
+
+  S.get (literal "/game/list") $ do
+    addJsonHeader
+    games <- liftIO $ STM.readTVarIO gamesVar
+    let uuids = show $ M.keys games
+    S.raw $ cs uuids
+```
+If server receives and empty game UUID or UUID which doesn't exist, it
+returns an error to the client, otherwise it applies the received user's commands to the game:
+```haskell
+playGame :: String -> String -> STM.TVar Games -> IO (Either String JsonLike)
+playGame commandsString uuid gamesVar = do 
+  (result, bombStatus) <- STM.atomically $ do
+    maybeGame <- findGame uuid gamesVar
+    case maybeGame of
+      Nothing -> return $ (Left $ "Game with uuid: " ++ uuid ++ " doesn't exist.", False)
+      (Just game) -> case parseCommands commandsString of
+        (E.Left e) -> return $ (Left e, False)
+        (E.Right (cs1, cs2)) -> do
+          let (newGame, bombStatus) = applyGameCommands (game, False) cs1  -- First apply commands that plant bomb or move bomberman.
+          insertGame' uuid newGame gamesVar
+
+          let shownGame = applyFetchCommands newGame cs2 -- Applying fetching commands and sending game data.
+              jsonGameData = toJsonLike shownGame
+
+          return (jsonGameData, bombStatus)
+  if bombStatus then do      
+    forkIO $ bombThread uuid gamesVar
+    return result
+  else
+    return result
+```
+
+#### `/server/GameMap.hs`
+The functions in this file are responsible for applying user's commands to the current `GameData` map and returning an updated `GameData` map:
+```haskell
+applyCommand :: Command -> (GameData, Bool) -> (GameData, Bool)
+applyCommand c (gd, b) = case c of
+  MoveBomberman direction -> (moveBomberman direction gd, b)
+  PlantBomb -> plantBomb gd
+  FetchSurrounding -> (gd, b)
+  FetchBombStatus  -> (gd, b)
+  FetchBombSurrounding  -> (gd, b)
+
+-- | Use this function for fetch commands.
+applyFetchCommands :: GameData -> [Command] -> GameData
+applyFetchCommands gd cms 
+  | a && b && c = (getSurrounding gd) {bomb = bomb gd }
+  | a && b = (getSurrounding gd) {bomb = bomb gd }
+  | a && c = gameDataEmpty {bomb = bomb gd }
+  | b && c = (getSurrounding gd) {bomb = []}
+  | otherwise = gd
+  where a = FetchSurrounding `elem` cms
+        b = FetchBombStatus `elem` cms
+        c = FetchBombSurrounding `elem` cms
+
+moveBomberman :: Direction -> GameData -> GameData
+moveBomberman direction gd = case direction of
+  Lib3.Up -> moveBomberman' (x - 1, y) gd
+  Lib3.Down -> moveBomberman' (x + 1, y) gd
+  Lib3.Left -> moveBomberman' (x, y - 1) gd
+  Lib3.Right -> moveBomberman' (x, y + 1) gd
+  where
+    [(x, y)] = bombermans gd
+```
+It also converts a predefined stringified map into `GameData` map when user starts new game and then returns it:
+```haskell
+getGameMapData :: GameMap -> GameData
+getGameMapData x = constructGameData gd gameMapElements
+  where
+    gameMapElements = getGameMapData' x
+    gd = gameDataEmpty {mapSize = getGameMapSize x}
+
+
+getGameMapSize :: GameMap -> (Int, Int)
+getGameMapSize x = (getGameMapWidth x, getGameMapHeight x)
+
+getGameMapWidth :: GameMap -> Int
+getGameMapWidth (GameMap gameMap) = length $ head gameMap
+
+getGameMapHeight :: GameMap -> Int
+getGameMapHeight (GameMap gameMap) = length gameMap
+
+gameMapCollection :: [GameMap]
+gameMapCollection = [gameMap1, gameMap2]
+
+gameMap1 :: GameMap
+gameMap1 = GameMap [
+        "XXXXXXXXXXXXXXX",
+        "XM    BBBBBBBBX",
+        "XBXBX X X X X X",
+        "X   B B   B   X",
+        "X X X X X XBXBX",
+        "X   B   B     X",
+        "X X XBXBX XBXBX",
+        "X         B B X",
+        "XBXBX XBXBXBXBX",
+        "X     BG      X",
+        "XBXBX XBXBXBX X",
+        "X     B       X",
+        "X XBXBXBXBXBXBX",
+        "X            OX",
+        "XXXXXXXXXXXXXXX"];
+```
+
 ### Testing
 ![Testing demo](testing.gif)
 
 Our parser is tested with various json strings by using the HUnit framework.
 One part of the tests are dedicated to checking the parser. Acceptance tests (`acceptanceJsonTests`) test whether the given value of `runParser` is Right and rejection tests (`rejectionJsonTests`) test if the given value of `runParser` is Left.
 The other part of the tests (`gameTests`) are meant to test the parser determining whether the json suits the game logic. Accordingly checking if `runGameParser` throws error if not suitable string is passed, and does not throw error otherwise.
+
+
