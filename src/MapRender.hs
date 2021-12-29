@@ -8,7 +8,7 @@ import MapElements
       createMapElements,
       newlineSym,
       defaultSym, getBombs, bricksSym, ghostsSym )
-import Parser3 ( JsonLike(..), runParser )
+import Parser4 ( JsonLike(..), runParser )
 import Lib3 (InitData (..), fromJsonLike, FromJsonLike (fromJsonLike))
 
 
