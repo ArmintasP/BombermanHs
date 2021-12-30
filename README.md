@@ -221,8 +221,8 @@ Our server's API is written using **Scotty framework**. The endpoints,
 to which our server reacts and calls specific functions, 
 are defined in the `serverApplication` function:
 ```haskell
-serverApplication :: STM.TVar Games -> S.ScottyM ()
-serverApplication gamesVar = do
+serverApplication :: STM.TVar Games -> STM.TVar [String] -> S.ScottyM ()
+serverApplication gamesVar uuidsVar = do
   S.post (capture "/game/play/:uuid") $ do
     addJsonHeader
     uuidLazy <- getParameter "uuid"
@@ -243,35 +243,39 @@ serverApplication gamesVar = do
       S.raw $ cs ("Couldn't create a game" :: String)
     else do
       liftIO $ insertGame uuid gameData gamesVar
+      liftIO $ insertUUID uuid uuidsVar
+      liftIO $ forkIO $ ghostThread uuid gamesVar
       S.raw $ cs str
 
 
   S.get (literal "/game/list") $ do
     addJsonHeader
-    games <- liftIO $ STM.readTVarIO gamesVar
-    let uuids = show $ M.keys games
-    S.raw $ cs uuids
+    uuids <- liftIO $ STM.readTVarIO uuidsVar
+    S.raw $ cs $ show uuids
 ```
 If server receives and empty game UUID or UUID which doesn't exist, it
 returns an error to the client, otherwise it applies the received user's commands to the game:
 ```haskell
 playGame :: String -> String -> STM.TVar Games -> IO (Either String JsonLike)
-playGame commandsString uuid gamesVar = do 
-  (result, bombStatus) <- STM.atomically $ do
-    maybeGame <- findGame uuid gamesVar
-    case maybeGame of
-      Nothing -> return $ (Left $ "Game with uuid: " ++ uuid ++ " doesn't exist.", False)
-      (Just game) -> case parseCommands commandsString of
-        (E.Left e) -> return $ (Left e, False)
-        (E.Right (cs1, cs2)) -> do
-          let (newGame, bombStatus) = applyGameCommands (game, False) cs1  -- First apply commands that plant bomb or move bomberman.
-          insertGame' uuid newGame gamesVar
+playGame commandsString uuid gamesVar = do
+  gameM <- STM.atomically $ do
+    games  <- STM.readTVar gamesVar
+    findGame uuid gamesVar
+  
+  (result, bombStatus) <- STM.atomically $ playGame' commandsString uuid gameM (\ gameVar game cs1 cs2 -> 
+    case GameMap.status game of
+      GameWon -> return (toJsonLike game, False)
+      GameLost -> return (toJsonLike game, False)
+      Playing -> do
+        let (newGame, bombStatus) = applyGameCommands (game, False) cs1  -- First apply commands that plant bomb or move bomberman.
+        STM.writeTVar gameVar newGame
 
-          let shownGame = applyFetchCommands newGame cs2 -- Applying fetching commands and sending game data.
-              jsonGameData = toJsonLike shownGame
+        let shownGame = applyFetchCommands newGame cs2 -- Applying fetching commands and sending game data.
+            jsonGameData = toJsonLike shownGame
 
-          return (jsonGameData, bombStatus)
-  if bombStatus then do      
+        return (jsonGameData, bombStatus))
+
+  if bombStatus then do
     forkIO $ bombThread uuid gamesVar
     return result
   else
@@ -291,7 +295,7 @@ applyCommand c (gd, b) = case c of
 
 -- | Use this function for fetch commands.
 applyFetchCommands :: GameData -> [Command] -> GameData
-applyFetchCommands gd cms 
+applyFetchCommands gd cms
   | a && b && c = (getSurrounding gd) {bomb = bomb gd }
   | a && b = (getSurrounding gd) {bomb = bomb gd }
   | a && c = gameDataEmpty {bomb = bomb gd }
@@ -303,10 +307,10 @@ applyFetchCommands gd cms
 
 moveBomberman :: Direction -> GameData -> GameData
 moveBomberman direction gd = case direction of
-  Lib3.Up -> moveBomberman' (x - 1, y) gd
-  Lib3.Down -> moveBomberman' (x + 1, y) gd
-  Lib3.Left -> moveBomberman' (x, y - 1) gd
-  Lib3.Right -> moveBomberman' (x, y + 1) gd
+  Lib3.Up -> checkGameStatus $ moveBomberman' (x - 1, y) gd
+  Lib3.Down -> checkGameStatus $ moveBomberman' (x + 1, y) gd
+  Lib3.Left -> checkGameStatus $ moveBomberman' (x, y - 1) gd
+  Lib3.Right -> checkGameStatus $ moveBomberman' (x, y + 1) gd
   where
     [(x, y)] = bombermans gd
 ```
@@ -322,32 +326,42 @@ getGameMapData x = constructGameData gd gameMapElements
 getGameMapSize :: GameMap -> (Int, Int)
 getGameMapSize x = (getGameMapWidth x, getGameMapHeight x)
 
-getGameMapWidth :: GameMap -> Int
-getGameMapWidth (GameMap gameMap) = length $ head gameMap
-
-getGameMapHeight :: GameMap -> Int
-getGameMapHeight (GameMap gameMap) = length gameMap
-
 gameMapCollection :: [GameMap]
-gameMapCollection = [gameMap1, gameMap2]
+gameMapCollection = filter isCorrectMap' gameMapCollection'
+
+-- Make sure to check if your map is corret with function isCorrectMap before adding it to the collection,
+-- otherwise it won't be inluded when server is launched.
+gameMapCollection' :: [GameMap]
+gameMapCollection' = [gameMap1, gameMap2, gameMap3]
+
+
+
+isCorrectMap :: GameMap -> Either String Bool
+isCorrectMap (GameMap gm)
+  | not lengthCheck = E.Left "Error: Map length is not the same in all lines."
+  | bm /= 1 = E.Left "Error: There must be one and only one bomberman in the map."
+  | ga < 1 = E.Left "Error: There must be at least one gate in the map."
+  | otherwise = E.Right True
+  where lengthCheck = isCorrectLength gm
+        (bm, ga) = countGatesAndBombermans (concat gm) (0, 0)
 
 gameMap1 :: GameMap
 gameMap1 = GameMap [
         "XXXXXXXXXXXXXXX",
         "XM    BBBBBBBBX",
         "XBXBX X X X X X",
-        "X   B B   B   X",
+        "X G B B   B   X",
         "X X X X X XBXBX",
-        "X   B   B     X",
+        "X G B   B     X",
         "X X XBXBX XBXBX",
-        "X         B B X",
+        "X G  G    B B X",
         "XBXBX XBXBXBXBX",
         "X     BG      X",
         "XBXBX XBXBXBX X",
         "X     B       X",
         "X XBXBXBXBXBXBX",
-        "X            OX",
-        "XXXXXXXXXXXXXXX"];
+        "X  BG      B OX",
+        "XXXXXXXXXXXXXXX"]
 ```
 
 ### Testing
