@@ -20,7 +20,7 @@ data GameData = GameData {
         gates :: Coordinates,
         wall :: Coordinates,
         mapSize :: (Int, Int),
-        status :: Status 
+        status :: Status
 } deriving (Show)
 
 gameDataEmpty :: GameData
@@ -51,7 +51,7 @@ applyCommand c (gd, b) = case c of
 
 -- | Use this function for fetch commands.
 applyFetchCommands :: GameData -> [Command] -> GameData
-applyFetchCommands gd cms 
+applyFetchCommands gd cms
   | a && b && c = (getSurrounding gd) {bomb = bomb gd }
   | a && b = (getSurrounding gd) {bomb = bomb gd }
   | a && c = gameDataEmpty {bomb = bomb gd }
@@ -94,7 +94,7 @@ moveGhost' ((x, y), dir) gd count
       Lib3.Right -> moveRight Lib3.Down
       Lib3.Up -> moveUp Lib3.Right
       Lib3.Down -> moveDown Lib3.Left
-  where 
+  where
     isValid p = not $ (p `elem` (wall gd ++ bricks gd))
     count' = count + 1
     moveLeft alt = if isValid (x, y - 1) then ((x, y - 1), dir) else moveGhost' ((x, y), alt) gd count'
@@ -104,7 +104,7 @@ moveGhost' ((x, y), dir) gd count
 
 
 checkGameStatus :: GameData -> GameData
-checkGameStatus gd 
+checkGameStatus gd
   | isLost = gd {status = GameLost}
   | isWon = gd {status = GameWon}
   | otherwise = gd
@@ -180,7 +180,23 @@ getGameMapHeight :: GameMap -> Int
 getGameMapHeight (GameMap gameMap) = length gameMap
 
 gameMapCollection :: [GameMap]
-gameMapCollection = [gameMap1, gameMap2]
+gameMapCollection = filter isCorrectMap' gameMapCollection'
+
+-- Make sure to check if your map is corret with function isCorrectMap before adding it to the collection,
+-- otherwise it won't be inluded when server is launched.
+gameMapCollection' :: [GameMap]
+gameMapCollection' = [gameMap1, gameMap2, gameMap3]
+
+
+
+isCorrectMap :: GameMap -> Either String Bool
+isCorrectMap (GameMap gm)
+  | not lengthCheck = E.Left "Error: Map length is not the same in all lines."
+  | bm /= 1 = E.Left "Error: There must be one and only one bomberman in the map."
+  | ga < 1 = E.Left "Error: There must be at least one gate in the map."
+  | otherwise = E.Right True
+  where lengthCheck = isCorrectLength gm
+        (bm, ga) = countGatesAndBombermans (concat gm) (0, 0)
 
 gameMap1 :: GameMap
 gameMap1 = GameMap [
@@ -197,26 +213,35 @@ gameMap1 = GameMap [
         "XBXBX XBXBXBX X",
         "X     B       X",
         "X XBXBXBXBXBXBX",
-        "X            OX",
-        "XXXXXXXXXXXXXXX"];
+        "X  BG      B OX",
+        "XXXXXXXXXXXXXXX"]
 
 gameMap2 :: GameMap
 gameMap2 = GameMap [
         "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
         "X     BBBBBBBBX                                           OX",
-        "X     X X X X X                                            X",
+        "XG    X X X X X                                            X",
         "X    GB       X                                            X",
         "X M   X X XBXBX                                            X",
-        "XG  B   B     X                                            X",
-        "XGX XBXBX XBXBX          BBBBBBBBBBBBBB                    X",
-        "XG G      B B X          B      G     B                    X",
+        "X   B   B     X                                            X",
+        "X X XBXBX XBXBX          BBBBBBBBBBBBBB                    X",
+        "X  G      B B X          B      G     B                    X",
         "XBXBX XBXBXBXBX          BBBBBBBBBBBBBB                    X",
         "X             X                                            X",
         "XBXBXBXBXBXBX X                                            X",
         "X             X                                            X",
         "X XBXBXBXBXBXBX                                            X",
         "X                                                          X",
-        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"];
+        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"]
+
+gameMap3 :: GameMap
+gameMap3 = GameMap [
+        "XXXXXXXXXXXX",
+        "XG B M B   X",
+        "XBBBBBB G  X",
+        "X         BX",
+        "X        BOX",
+        "XXXXXXXXXXXX"]
 
 bombermansSym = 'M'
 bricksSym = 'B'
@@ -273,3 +298,20 @@ addPoint c cord gd
   | c == gatesSym = gd {gates = gates gd ++ [cord]}
   | c == wallSym = gd {wall = wall gd ++ [cord]}
   | otherwise = gd
+
+
+isCorrectLength :: [String] -> Bool
+isCorrectLength gm = head ([False | (l1, l2) <- zip (Prelude.init gm) (tail gm), length l1 /= length l2] ++ [True])
+
+countGatesAndBombermans :: String -> (Int, Int) -> (Int, Int)
+countGatesAndBombermans [] (bm, ga) = (bm, ga)
+countGatesAndBombermans (x:xs) (bm, ga)
+  | x == bombermansSym = countGatesAndBombermans xs (bm + 1, ga)
+  | x == gatesSym = countGatesAndBombermans xs (bm ,ga + 1)
+  | otherwise = countGatesAndBombermans xs (bm, ga)
+
+
+isCorrectMap' :: GameMap -> Bool
+isCorrectMap' gm = case isCorrectMap gm of
+  E.Left _ ->  False
+  E.Right _ -> True
