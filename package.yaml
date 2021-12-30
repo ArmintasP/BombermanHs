@@ -22,6 +22,7 @@ description:         Please see the README on GitHub at <https://github.com/gith
 dependencies:
 - base >= 4.7 && < 5
 - HUnit
+- transformers
 
 library:
   source-dirs: src
@@ -41,6 +42,31 @@ executables:
     - lens
     - ansi-terminal
     - string-conversions
+
+  bomberman-server:
+    main: Main.hs
+    source-dirs: server
+    default-extensions:
+    - OverloadedStrings
+    ghc-options:
+    - -threaded
+    - -rtsopts
+    - -with-rtsopts=-N
+    dependencies:
+    - bomberman-client
+    - bytestring
+    - wreq
+    - lens
+    - ansi-terminal
+    - string-conversions
+    - scotty
+    - uuid
+    - text
+    - random
+    - transformers
+    - stm
+    - containers
+    - lens
 
 tests:
   bomberman-client-test:

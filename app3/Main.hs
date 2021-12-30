@@ -11,7 +11,7 @@ import Data.Function ((&))
 import Data.List as L (concat, (++))
 import Data.String.Conversions (cs)
 import Lib3
-import Parser3 (JsonLike)
+import Parser4 (JsonLike)
 import MapRender (init, render, update, State (State))
 import Network.Wreq (post, responseBody)
 import Network.Wreq.Lens (Response (..))
@@ -29,14 +29,15 @@ import Prelude hiding (Left, Right)
 
 -- MANDATORY CODE
 host :: String
-host = "http://bomberman.homedir.eu"
+host = "http://127.0.0.1:3000"
+
 
 createGame ::
   (FromJsonLike a) =>
   Sess.Session ->
   IO a
 createGame sess = do
-  r <- Sess.post sess (host ++ "/v1/game/new/random") B.empty
+  r <- Sess.get sess (host ++ "/game/new/random")
   let resp = cs $ r ^. responseBody :: String
   return $ toJsonLike resp & e & fromJsonLike & e
 
@@ -49,7 +50,7 @@ postCommands ::
 postCommands uuid sess commands = do
   let str = toJsonLike commands & e & fromJsonLike & e :: String
   let req = cs str :: B.ByteString
-  r <- Sess.post sess (L.concat [host, "/v3/game/", uuid]) req
+  r <- Sess.post sess (L.concat [host, "/game/play/", uuid]) req
   let respStr = cs $ r ^. responseBody :: String
   return $ toJsonLike respStr & e & fromJsonLike & e
 

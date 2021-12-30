@@ -1,6 +1,6 @@
 module MapElements where
 import GameParser (jsonToCoordinates)
-import Parser3 (JsonLike)
+import Parser4 (JsonLike)
 
 -- | Record fields with prefix 'b' are from bomb_surrounding
 data MapElements = MapElements {
@@ -22,7 +22,7 @@ getBombs = bomb
 staticMEfuns :: [(MapElements -> [[Int]], String)]
 staticMEfuns = [
          (gates, gatesSym),
-         (ghosts, ghostsSym ),
+         --(ghosts, ghostsSym ),
          (bricks, bricksSym),
          (wall, wallSym)]
 
@@ -31,7 +31,8 @@ staticMEfuns = [
 dynamicMEfuns :: [(MapElements -> [[Int]], String)]
 dynamicMEfuns = [
          (bomb, bombsSym),
-         (bombermans, bombermansSym)]
+         (bombermans, bombermansSym),
+         (ghosts, ghostsSym)]
 
 
 createMapElements :: JsonLike -> Either String MapElements

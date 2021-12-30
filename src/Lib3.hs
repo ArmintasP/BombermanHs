@@ -4,7 +4,7 @@ module Lib3 where
 
 import Data.Either as E (Either (..))
 import Data.List as L (lookup)
-import Parser3 (JsonLike(..), runParser)
+import Parser4 (JsonLike(..), runParser)
 import Data.Data
 data InitData = InitData
   { gameWidth :: Int,
@@ -97,7 +97,7 @@ invalidType :: String -> Either String b
 invalidType = E.Left . (++) "Invalid value type for " 
 
 data Direction = Right | Left | Up | Down
-  deriving (Show)
+  deriving (Show, Eq, Read)
 
 data Command
   = MoveBomberman Direction
@@ -105,7 +105,7 @@ data Command
   | PlantBomb
   | FetchBombStatus
   | FetchBombSurrounding
-  deriving (Show)
+  deriving (Show, Eq, Read)
 
 instance ToJsonLike Command where
   toJsonLike (MoveBomberman dir) = E.Right $ JsonLikeObject [("name", JsonLikeString $ getConst (MoveBomberman dir)), ("direction", JsonLikeString (show dir))]
@@ -132,7 +132,28 @@ instance ToJsonLike Commands where
 
 -- Note: if using FromJsonLike, always use it with ::String, as there is no need (and logical means) to convert a JsonLike to Commands.
 instance FromJsonLike Commands where
-  fromJsonLike js = E.Left (show js)
+  fromJsonLike js = E.Right $ toCommands js'
+    where JsonLikeObject js' = js
+
+toCommands :: [(String, JsonLike)] -> Commands
+toCommands (("command", JsonLikeObject value):[]) = Commands (getCommand value) Nothing
+toCommands (("command", JsonLikeObject value):xs) = Commands (getCommand value) (Just (toCommands value'))
+  where [("additional", JsonLikeObject value')] = xs
+
+getCommand :: [(String, JsonLike)] -> Command
+getCommand (("name", JsonLikeString value):[]) = getCommandName value
+getCommand (("name", JsonLikeString value):xs) = MoveBomberman (getDirection dir)
+  where [("direction", JsonLikeString dir)] = xs
+
+getDirection :: String -> Direction
+getDirection = read
+
+getCommandName :: String -> Command
+getCommandName = read
+
+toCommandList :: Commands -> [Command]
+toCommandList (Commands cmd (Just ad)) = [cmd] ++ toCommandList ad
+toCommandList (Commands cmd Nothing) = [cmd]
 
 newtype CommandsResponse = CommandsResponse String
   deriving (Show)
