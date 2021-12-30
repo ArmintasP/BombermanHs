@@ -33,7 +33,7 @@ to run tests.
 - Colored rendering is done in `/src/MapRender.hs`.
 - Testing is done in `/test/Spec.hs`.
 - Server logic is in `/server/`
-
+<!-- 
 ##### version 3
 ![Bomberman demo3](preview3.gif)
 - Received JSON data is parsed using our own  `/src/Parser3.hs` functions.
@@ -49,7 +49,7 @@ to run tests.
 ##### version 1
 ![Bomberman demo](preview.gif) 
 - Received JSON data is parsed using our own  `/src/Parser.hs` functions.
-- Colored rendering is done in `/src/Lib1.hs`.
+- Colored rendering is done in `/src/Lib1.hs`. -->
 <hr>
 
 
@@ -57,18 +57,19 @@ to run tests.
 ### Parsing
 
 ##### Parsing JSON
-1. First, we create an ADT JsonLike that directly reflects the JSON data types.
+1. We have constructed a type `Parser` using a monad transformer `ExceptT` and a state monad `State` from the package `transformers`.
+In `State` we keep a tuple for the unparsed string and the number of parsed characters.
 ```haskell
-data JsonLike
-  = JsonLikeInteger Integer
-  | JsonLikeString String
-  | JsonLikeObject [(String, JsonLike)]
-  | JsonLikeList [JsonLike]
-  | JsonLikeNull
-  deriving (Show)
+type Parser a = ExceptT ParserError (State (String, Integer)) a
 ```
 
-2. We determine the JsonLike value type and pass to an according parser.
+2. We later use the the number of parsed characters to print more concise error messages in data `ParserError`.
+```haskell
+instance Show ParserError where
+  show (ParserError index message) = "Error after index " ++ show index ++ ": " ++ message
+```
+
+3. We determine the JSON value type and pass to an according parser.
 ```haskell
 parseJsonLike :: Parser JsonLike
 parseJsonLike = do
@@ -87,19 +88,16 @@ parseJsonLike = do
   else throwE $ ParserError index "No json value could be matched"
 ```
 
-3. Before parsing any JsonLike value, we drop the beginning of the string while it's a whitespace character.
+4. Each JSON value gets parsed by it's own specific way of parsing and is then constructed in an ADT that directly reflects the JSON data types.
 ```haskell
-stripStart :: (String, Integer) -> (String, Integer)
-stripStart ([], index) = ([], index)
-stripStart ([x], index)
-  | isSpace x = stripStart ([], index + 1)
-  | otherwise = ([x], index)
-stripStart (x:xs, index)
-  | isSpace x = stripStart (xs, index + 1)
-  | otherwise = (x:xs, index)
+data JsonLike
+  = JsonLikeInteger Integer
+  | JsonLikeString String
+  | JsonLikeObject [(String, JsonLike)]
+  | JsonLikeList [JsonLike]
+  | JsonLikeNull
+  deriving (Show)
 ```
-
-4. Each JsonLike value type gets parsed by it's own specific way of parsing.
 
 ##### Checking game logic
 After parsing, the parsed json string is converted into a specific struture:
