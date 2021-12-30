@@ -28,7 +28,7 @@ to run tests.
 
 ## Current state
 ##### version 4
-![Bomberman demo3](preview3.gif)
+![Bomberman demo4](preview4.gif)
 - Received JSON data is parsed using our own  `/src/Parser4.hs` functions.
 - Colored rendering is done in `/src/MapRender.hs`.
 - Testing is done in `/test/Spec.hs`.
