@@ -2,33 +2,35 @@ module GameMap where
 import Data.Either as E (Either (..))
 import Lib3 (Command(..), Direction(..), ToJsonLike (toJsonLike))
 import Parser4 (JsonLike(..))
-import Control.Concurrent (forkIO, threadDelay, myThreadId)
-import qualified Control.Concurrent.STM as STM
-import qualified Data.Map as M
 
 newtype GameMap = GameMap [String]
+
 type Point = (Int, Int)
 type Coordinates = [Point]
-type Games = M.Map String GameData
+
+
+data Status =  Playing | GameLost | GameWon
+  deriving (Show)
 
 data GameData = GameData {
         bombermans :: Coordinates,
-        ghosts :: Coordinates,
+        ghosts :: [(Point, Direction)],
         bomb :: Coordinates,
         bricks :: Coordinates,
         gates :: Coordinates,
         wall :: Coordinates,
-        mapSize :: (Int, Int)
+        mapSize :: (Int, Int),
+        status :: Status
 } deriving (Show)
 
 gameDataEmpty :: GameData
-gameDataEmpty = GameData [] [] [] [] [] [] (0, 0)
+gameDataEmpty = GameData [] [] [] [] [] [] (0, 0) Playing
 
 instance ToJsonLike GameData where
-  toJsonLike (GameData bm gh bo br ga wa _) =  E.Right $ JsonLikeObject [surrounding, bomb, bomb_surrounding]
+  toJsonLike gd@(GameData bm gh bo br ga wa _ _) =  E.Right $ JsonLikeObject [surrounding, bomb, bomb_surrounding]
     where
       bm' = linkedList bm
-      gh' = linkedList gh
+      gh' = linkedList $ getAllGhostCoordinates gd
       bo' = linkedList bo
       br' = linkedList br
       ga' = linkedList ga
@@ -49,7 +51,7 @@ applyCommand c (gd, b) = case c of
 
 -- | Use this function for fetch commands.
 applyFetchCommands :: GameData -> [Command] -> GameData
-applyFetchCommands gd cms 
+applyFetchCommands gd cms
   | a && b && c = (getSurrounding gd) {bomb = bomb gd }
   | a && b = (getSurrounding gd) {bomb = bomb gd }
   | a && c = gameDataEmpty {bomb = bomb gd }
@@ -61,12 +63,56 @@ applyFetchCommands gd cms
 
 moveBomberman :: Direction -> GameData -> GameData
 moveBomberman direction gd = case direction of
-  Lib3.Up -> moveBomberman' (x - 1, y) gd
-  Lib3.Down -> moveBomberman' (x + 1, y) gd
-  Lib3.Left -> moveBomberman' (x, y - 1) gd
-  Lib3.Right -> moveBomberman' (x, y + 1) gd
+  Lib3.Up -> checkGameStatus $ moveBomberman' (x - 1, y) gd
+  Lib3.Down -> checkGameStatus $ moveBomberman' (x + 1, y) gd
+  Lib3.Left -> checkGameStatus $ moveBomberman' (x, y - 1) gd
+  Lib3.Right -> checkGameStatus $ moveBomberman' (x, y + 1) gd
   where
     [(x, y)] = bombermans gd
+
+-- | Not a smart moving algorithm, though.
+moveGhosts :: GameData -> GameData
+moveGhosts gd = checkGameStatus $ gd {ghosts = gh'}
+  where
+    gh = ghosts gd
+    gh' =  [moveGhost x gd | x <- gh]
+
+moveGhost :: (Point, Direction) -> GameData -> (Point, Direction)
+moveGhost x gd = moveGhost' x gd 0
+
+-- | Multiple rules for more "randomized" movement.
+moveGhost' :: (Point, Direction) -> GameData -> Int -> (Point, Direction)
+moveGhost' ((x, y), dir) gd count
+  | count >= 6 = ((x, y), dir)
+  | count == 1 = case dir of
+      Lib3.Left -> moveLeft Lib3.Right
+      Lib3.Right -> moveRight Lib3.Left
+      Lib3.Up -> moveUp Lib3.Down
+      Lib3.Down -> moveDown Lib3.Up
+  | otherwise = case dir of
+      Lib3.Left -> moveLeft Lib3.Up
+      Lib3.Right -> moveRight Lib3.Down
+      Lib3.Up -> moveUp Lib3.Right
+      Lib3.Down -> moveDown Lib3.Left
+  where
+    isValid p = not $ (p `elem` (wall gd ++ bricks gd))
+    count' = count + 1
+    moveLeft alt = if isValid (x, y - 1) then ((x, y - 1), dir) else moveGhost' ((x, y), alt) gd count'
+    moveRight alt =  if isValid (x, y + 1) then ((x, y + 1), dir) else moveGhost' ((x, y), alt) gd count'
+    moveUp alt = if isValid (x - 1, y) then ((x - 1, y), dir) else moveGhost' ((x, y), alt) gd count'
+    moveDown alt = if isValid (x + 1, y) then ((x + 1, y), dir) else moveGhost' ((x, y), alt) gd count'
+
+
+checkGameStatus :: GameData -> GameData
+checkGameStatus gd
+  | isLost = gd {status = GameLost}
+  | isWon = gd {status = GameWon}
+  | otherwise = gd
+  where [bm] = bombermans gd
+        ga = gates gd
+        gh = getAllGhostCoordinates gd
+        isWon = bm `elem` ga
+        isLost = bm `elem` gh
 
 --   |
 --  —b—  Bomb's explosion spans to each direction (up, down, left and right) with radius of 1.
@@ -76,8 +122,9 @@ explodeBomb gd = gd {bricks = remainingBricks, ghosts = remainingGhosts, bomb = 
   where
     [(x, y)] = bomb gd
     blastSpots = [(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)]
-    remainingBricks = removePoints (bricks gd) blastSpots
-    remainingGhosts = removePoints (ghosts gd) blastSpots
+    explode x = removePoints x blastSpots
+    remainingBricks = explode (bricks gd)
+    remainingGhosts = [(p', dir) | (p, dir) <- ghosts gd, p' <- explode [p], length p' > 0]
 
 plantBomb :: GameData -> (GameData, Bool)
 plantBomb gd = if isBombPlanted then (gd, False) else (gd {bomb = plantSpot}, True)
@@ -103,14 +150,18 @@ getSurrounding :: GameData -> GameData
 getSurrounding gd = gd {bombermans = [bm], ghosts = gh, bomb = [], bricks = br, gates = gt, wall = wl}
   where
     [bm] = bombermans gd
-    br = getInRange radius bm $ bricks gd
-    gh = getInRange radius bm $ ghosts gd
-    gt = getInRange radius bm $ gates gd
-    wl = getInRange radius bm $ wall gd
+    getInRange' x = getInRange radius bm x
+    br = getInRange' $ bricks gd
+    gh = [(p', dir) | (p, dir) <- ghosts gd, p' <- getInRange' [p], length p' > 0]
+    gt = getInRange' $ gates gd
+    wl = getInRange' $ wall gd
 
 -- | Removes points that matches the blacklist.
 removePoints :: [Point] -> [Point] -> [Point]
 removePoints points blacklist = [p | p <- points, p `notElem` blacklist]
+
+getAllGhostCoordinates :: GameData -> Coordinates
+getAllGhostCoordinates (GameData _ gh _ _ _ _ _ _) = [p | (p, _) <- gh]
 
 getGameMapData :: GameMap -> GameData
 getGameMapData x = constructGameData gd gameMapElements
@@ -129,43 +180,68 @@ getGameMapHeight :: GameMap -> Int
 getGameMapHeight (GameMap gameMap) = length gameMap
 
 gameMapCollection :: [GameMap]
-gameMapCollection = [gameMap1, gameMap2]
+gameMapCollection = filter isCorrectMap' gameMapCollection'
+
+-- Make sure to check if your map is corret with function isCorrectMap before adding it to the collection,
+-- otherwise it won't be inluded when server is launched.
+gameMapCollection' :: [GameMap]
+gameMapCollection' = [gameMap1, gameMap2, gameMap3]
+
+
+
+isCorrectMap :: GameMap -> Either String Bool
+isCorrectMap (GameMap gm)
+  | not lengthCheck = E.Left "Error: Map length is not the same in all lines."
+  | bm /= 1 = E.Left "Error: There must be one and only one bomberman in the map."
+  | ga < 1 = E.Left "Error: There must be at least one gate in the map."
+  | otherwise = E.Right True
+  where lengthCheck = isCorrectLength gm
+        (bm, ga) = countGatesAndBombermans (concat gm) (0, 0)
 
 gameMap1 :: GameMap
 gameMap1 = GameMap [
         "XXXXXXXXXXXXXXX",
         "XM    BBBBBBBBX",
         "XBXBX X X X X X",
-        "X   B B   B   X",
+        "X G B B   B   X",
         "X X X X X XBXBX",
-        "X   B   B     X",
+        "X G B   B     X",
         "X X XBXBX XBXBX",
-        "X         B B X",
+        "X G  G    B B X",
         "XBXBX XBXBXBXBX",
         "X     BG      X",
         "XBXBX XBXBXBX X",
         "X     B       X",
         "X XBXBXBXBXBXBX",
-        "X            OX",
-        "XXXXXXXXXXXXXXX"];
+        "X  BG      B OX",
+        "XXXXXXXXXXXXXXX"]
 
 gameMap2 :: GameMap
 gameMap2 = GameMap [
         "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX",
-        "XM    BBBBBBBBX                                           OX",
-        "X     X X X X X                                            X",
-        "X     B       X                                            X",
-        "X     X X XBXBX                                            X",
+        "X     BBBBBBBBX                                           OX",
+        "XG    X X X X X                                            X",
+        "X    GB       X                                            X",
+        "X M   X X XBXBX                                            X",
         "X   B   B     X                                            X",
         "X X XBXBX XBXBX          BBBBBBBBBBBBBB                    X",
-        "X         B B X          B      G     B                    X",
+        "X  G      B B X          B      G     B                    X",
         "XBXBX XBXBXBXBX          BBBBBBBBBBBBBB                    X",
         "X             X                                            X",
         "XBXBXBXBXBXBX X                                            X",
         "X             X                                            X",
         "X XBXBXBXBXBXBX                                            X",
         "X                                                          X",
-        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"];
+        "XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"]
+
+gameMap3 :: GameMap
+gameMap3 = GameMap [
+        "XXXXXXXXXXXX",
+        "XG B M B   X",
+        "XBBBBBB G  X",
+        "X         BX",
+        "X        BOX",
+        "XXXXXXXXXXXX"]
 
 bombermansSym = 'M'
 bricksSym = 'B'
@@ -217,8 +293,25 @@ getGameMapData' (GameMap m) = do
 addPoint :: Char -> Point -> GameData -> GameData
 addPoint c cord gd
   | c == bombermansSym = gd {bombermans = bombermans gd ++[cord]}
-  | c == ghostsSym = gd {ghosts = ghosts gd ++ [cord]}
+  | c == ghostsSym = gd {ghosts = ghosts gd ++ [(cord, Lib3.Left)]}
   | c == bricksSym = gd {bricks = bricks gd ++ [cord]}
   | c == gatesSym = gd {gates = gates gd ++ [cord]}
   | c == wallSym = gd {wall = wall gd ++ [cord]}
   | otherwise = gd
+
+
+isCorrectLength :: [String] -> Bool
+isCorrectLength gm = head ([False | (l1, l2) <- zip (Prelude.init gm) (tail gm), length l1 /= length l2] ++ [True])
+
+countGatesAndBombermans :: String -> (Int, Int) -> (Int, Int)
+countGatesAndBombermans [] (bm, ga) = (bm, ga)
+countGatesAndBombermans (x:xs) (bm, ga)
+  | x == bombermansSym = countGatesAndBombermans xs (bm + 1, ga)
+  | x == gatesSym = countGatesAndBombermans xs (bm ,ga + 1)
+  | otherwise = countGatesAndBombermans xs (bm, ga)
+
+
+isCorrectMap' :: GameMap -> Bool
+isCorrectMap' gm = case isCorrectMap gm of
+  E.Left _ ->  False
+  E.Right _ -> True

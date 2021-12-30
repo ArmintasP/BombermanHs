@@ -22,7 +22,7 @@ getBombs = bomb
 staticMEfuns :: [(MapElements -> [[Int]], String)]
 staticMEfuns = [
          (gates, gatesSym),
-         (ghosts, ghostsSym ),
+         --(ghosts, ghostsSym ),
          (bricks, bricksSym),
          (wall, wallSym)]
 
@@ -31,7 +31,8 @@ staticMEfuns = [
 dynamicMEfuns :: [(MapElements -> [[Int]], String)]
 dynamicMEfuns = [
          (bomb, bombsSym),
-         (bombermans, bombermansSym)]
+         (bombermans, bombermansSym),
+         (ghosts, ghostsSym)]
 
 
 createMapElements :: JsonLike -> Either String MapElements
